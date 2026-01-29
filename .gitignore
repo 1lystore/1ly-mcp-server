@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+coverage/
+.turbo/
+.claude
+docs/
+scripts/
+*.tgz
+
+# Wallets / secrets (never commit)
+wallets/
+**/*wallet*.json
+**/*keypair*.json
+**/*.key
+**/*.pem
