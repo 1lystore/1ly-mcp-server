@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { encodePaymentRequiredHeader } from "@x402/core/http";
 import type { Config } from "../config.js";
 
 // Mock wallet/payment builders so tests don't require real keys/crypto
@@ -6,6 +7,7 @@ vi.mock("../wallet/solana.js", async () => {
   return {
     loadSolanaWallet: vi.fn(async () => ({ publicKey: { toBase58: () => "TEST" } })),
     buildSolanaPayment: vi.fn(async () => "PAYMENT_HEADER"),
+    buildSolanaPaymentSignature: vi.fn(async () => "PAYMENT_SIGNATURE"),
   };
 });
 
@@ -33,25 +35,35 @@ describe("1ly_call", () => {
   });
 
   it("handles 402 -> pays -> returns ok response", async () => {
+    const paymentRequired = {
+      x402Version: 2,
+      resource: {
+        url: "https://1ly.store/api/link/joe/weather",
+        description: "Test API",
+        mimeType: "application/json",
+      },
+      accepts: [
+        {
+          scheme: "exact",
+          network: "solana:devnet",
+          amount: "10000",
+          payTo: "TREASURY",
+          asset: "USDC",
+          extra: { feePayer: "FEEPAYER" },
+        },
+      ],
+    };
+
     const fetchMock = vi
       .fn()
       // First call returns 402 with payment requirements in JSON
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            x402Version: 1,
-            accepts: [
-              {
-                scheme: "exact",
-                network: "solana-devnet",
-                maxAmountRequired: "10000",
-                payTo: "TREASURY",
-                extra: { feePayer: "FEEPAYER" },
-              },
-            ],
-          }),
-          { status: 402 }
-        )
+        new Response(JSON.stringify(paymentRequired), {
+          status: 402,
+          headers: {
+            "PAYMENT-REQUIRED": encodePaymentRequiredHeader(paymentRequired),
+          },
+        })
       )
       // Second call returns 200 with data (including _1ly metadata)
       .mockResolvedValueOnce(
@@ -69,11 +81,10 @@ describe("1ly_call", () => {
     expect(parsed.ok).toBe(true);
     expect(parsed.data.hello).toBe("world");
 
-    // Ensure we tried twice and sent X-PAYMENT on second attempt
+    // Ensure we tried twice and sent payment-signature on second attempt
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const secondCallArgs = fetchMock.mock.calls[1];
     const secondInit = secondCallArgs[1] as { headers?: Record<string, string> };
-    expect(secondInit.headers?.["X-PAYMENT"]).toBe("PAYMENT_HEADER");
+    expect(secondInit.headers?.["payment-signature"]).toBe("PAYMENT_SIGNATURE");
   });
 });
-
