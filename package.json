@@ -38,11 +38,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/1lystore/mcp-server.git"
+    "url": "git+https://github.com/1lystore/1ly-mcp-server.git"
   },
   "homepage": "https://docs.1ly.store",
   "bugs": {
-    "url": "https://github.com/1lystore/mcp-server/issues"
+    "url": "https://github.com/1lystore/1ly-mcp-server/issues"
   },
   "engines": {
     "node": ">=18.0.0"
