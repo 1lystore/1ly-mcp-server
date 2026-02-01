@@ -55,8 +55,12 @@ function parseEndpoint(endpoint: string): string {
 
 export async function handleCall(args: unknown, config: Config) {
   const input = InputSchema.parse(args);
-  if (!config.wallet) {
-    throw new Error("Missing wallet config: set ONELY_WALLET_TYPE and ONELY_WALLET_KEY");
+  const solanaKey = config.walletSolana || (config.wallet?.type === "solana" ? config.wallet.key : null);
+  const evmKey = config.walletEvm || (config.wallet?.type === "evm" ? config.wallet.key : null);
+  if (!solanaKey && !evmKey) {
+    throw new Error(
+      "Missing wallet config: set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY (or legacy ONELY_WALLET_TYPE/KEY)"
+    );
   }
   const endpointPath = parseEndpoint(input.endpoint);
   const fullUrl = `${config.apiBase}${endpointPath}`;
@@ -80,8 +84,8 @@ export async function handleCall(args: unknown, config: Config) {
     await assertOk(initialResponse, "API call failed");
   }
 
-  // Parse 402 response body for payment requirements
-  const body402 = (await initialResponse.json()) as {
+  // Parse 402 response body for payment requirements (best-effort; may be empty/non-JSON)
+  let body402: {
     x402Version?: number;
     accepts?: Array<{
       scheme: string;
@@ -92,18 +96,37 @@ export async function handleCall(args: unknown, config: Config) {
       asset?: string;
       extra?: { feePayer?: string };
     }>;
-  };
+  } = {};
+  try {
+    body402 = (await initialResponse.json()) as typeof body402;
+  } catch {
+    // Some 402 responses only include headers
+  }
 
-  const prefersSolana = config.wallet.type === "solana";
-  const accepts = body402.accepts?.find((entry) =>
-    prefersSolana ? String(entry.network).startsWith("solana:") : String(entry.network).startsWith("eip155:")
-  ) || body402.accepts?.[0];
+  const preferredNetwork =
+    solanaKey && !evmKey
+      ? "solana"
+      : evmKey && !solanaKey
+      ? "eip155"
+      : config.network === "solana"
+      ? "solana"
+      : "eip155";
+
+  const accepts = body402.accepts?.find((entry) => {
+    const network = String(entry.network);
+    if (preferredNetwork === "solana") return network.startsWith("solana:");
+    return network.startsWith("eip155:");
+  }) || body402.accepts?.[0];
   if (!accepts) {
     throw new Error("402 response missing payment requirements in body");
   }
 
   // Price is in smallest unit (e.g., 10000 = 0.01 USDC with 6 decimals)
-  const priceInSmallestUnit = parseInt(accepts.amount || accepts.maxAmountRequired || "0");
+  const rawAmount = accepts.amount || accepts.maxAmountRequired;
+  const priceInSmallestUnit = rawAmount ? Number(rawAmount) : NaN;
+  if (!Number.isFinite(priceInSmallestUnit) || priceInSmallestUnit <= 0) {
+    throw new Error("Invalid or missing payment amount in 402 requirements");
+  }
   const priceUsd = priceInSmallestUnit / 1_000_000;
 
   if (priceUsd > config.budgets.perCall) {
@@ -117,8 +140,18 @@ export async function handleCall(args: unknown, config: Config) {
 
   // Build x402 payment signature header (v2)
   let paymentSignature: string;
-  if (config.wallet.type === "solana") {
-    const wallet = await loadSolanaWallet(config.wallet.key);
+  const network = String(accepts.network || "");
+  const shouldUseSolana = network.startsWith("solana:")
+    ? true
+    : network.startsWith("eip155:")
+    ? false
+    : preferredNetwork === "solana";
+
+  if (shouldUseSolana) {
+    if (!solanaKey) {
+      throw new Error("Solana wallet not configured for this payment");
+    }
+    const wallet = await loadSolanaWallet(solanaKey);
     const coreClient = new x402Client((_, acceptsList) => {
       return (
         acceptsList.find((entry) => String(entry.network).startsWith("solana:")) ||
@@ -131,7 +164,10 @@ export async function handleCall(args: unknown, config: Config) {
       body402
     );
     paymentSignature = await buildSolanaPaymentSignature(paymentRequired, wallet);
-  } else if (config.wallet.type === "evm") {
+  } else {
+    if (!evmKey) {
+      throw new Error("EVM wallet not configured for this payment");
+    }
     const coreClient = new x402Client((_, acceptsList) => {
       return (
         acceptsList.find((entry) => String(entry.network).startsWith("eip155:")) ||
@@ -143,17 +179,15 @@ export async function handleCall(args: unknown, config: Config) {
       (name) => initialResponse.headers.get(name),
       body402
     );
-    paymentSignature = await buildEvmPaymentSignature(paymentRequired, config.wallet.key);
-  } else {
-    throw new Error(`Unsupported wallet type: ${config.wallet.type}`);
+    paymentSignature = await buildEvmPaymentSignature(paymentRequired, evmKey);
   }
 
-  const paidResponse = await fetch(fullUrl, {
+  const paidResponse = await fetchWithTimeout(fullUrl, {
     method: input.method,
     headers: {
       "Content-Type": "application/json",
-      "payment-signature": paymentSignature,
       ...input.headers,
+      "payment-signature": paymentSignature,
     },
     body: input.body ? JSON.stringify(input.body) : undefined,
   });

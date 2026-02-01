@@ -1,14 +1,13 @@
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { base, baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 import { x402Client } from "@x402/core/client";
 import { x402HTTPClient } from "@x402/core/http";
 import { ExactEvmScheme } from "@x402/evm";
 import * as fs from "fs";
 import type { PaymentRequired } from "@x402/core/types";
 
-// Determine network from env
-const IS_TESTNET = process.env.BASE_NETWORK === "sepolia" || process.env.NODE_ENV !== "production";
-const CHAIN = IS_TESTNET ? baseSepolia : base;
+// Mainnet only
+const CHAIN = base;
 
 export async function loadEvmWallet(keyInput: string): Promise<PrivateKeyAccount> {
   let privateKey: `0x${string}`;
@@ -271,6 +270,7 @@ export async function buildEvmPaymentSignature(
     headers["PAYMENT-SIGNATURE"] ||
     headers["Payment-Signature"] ||
     headers["payment-signature"] ||
-    headers["X-PAYMENT"]
+    headers["X-PAYMENT"] ||
+    Buffer.from(JSON.stringify(paymentPayload)).toString("base64")
   );
 }

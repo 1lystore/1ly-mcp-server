@@ -16,7 +16,11 @@ import { listLinksTool, handleListLinks } from "./tools/list-links.js";
 import { updateLinkTool, handleUpdateLink } from "./tools/update-link.js";
 import { deleteLinkTool, handleDeleteLink } from "./tools/delete-link.js";
 import { getStatsTool, handleGetStats } from "./tools/get-stats.js";
-import { loadConfig } from "./config.js";
+import { createStoreTool, handleCreateStore } from "./tools/create-store.js";
+import { listKeysTool, handleListKeys } from "./tools/list-keys.js";
+import { createKeyTool, handleCreateKey } from "./tools/create-key.js";
+import { revokeKeyTool, handleRevokeKey } from "./tools/revoke-key.js";
+import { loadConfigWithStoredKey } from "./config.js";
 import { runSelfTest } from "./selftest.js";
 import { mcpError } from "./mcp.js";
 
@@ -29,12 +33,10 @@ async function main() {
     process.exit(code);
   }
 
-  const config = loadConfig();
-
   const server = new Server(
     {
       name: "1ly",
-      version: "0.1.0",
+      version: "0.1.2",
     },
     {
       capabilities: {
@@ -54,6 +56,10 @@ async function main() {
       updateLinkTool,
       deleteLinkTool,
       getStatsTool,
+      createStoreTool,
+      listKeysTool,
+      createKeyTool,
+      revokeKeyTool,
     ],
   }));
 
@@ -61,6 +67,7 @@ async function main() {
     const { name, arguments: args } = request.params;
 
     try {
+      const config = await loadConfigWithStoredKey();
       switch (name) {
         case "1ly_search":
           return await handleSearch(args, config);
@@ -83,6 +90,14 @@ async function main() {
           return await handleDeleteLink(args, config);
         case "1ly_get_stats":
           return await handleGetStats(args, config);
+        case "1ly_create_store":
+          return await handleCreateStore(args, config);
+        case "1ly_list_keys":
+          return await handleListKeys(args, config);
+        case "1ly_create_key":
+          return await handleCreateKey(args, config);
+        case "1ly_revoke_key":
+          return await handleRevokeKey(args, config);
 
         default:
           return {

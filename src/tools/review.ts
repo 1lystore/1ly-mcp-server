@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { Config } from "../config.js";
-import { getWalletAddress } from "../wallet/solana.js";
-import { getEvmWalletAddress } from "../wallet/evm.js";
-import { fetchWithTimeout, assertOk } from "../http.js";
+import { loadSolanaWallet } from "../wallet/solana.js";
+import { loadEvmWallet } from "../wallet/evm.js";
+import { fetchWithTimeout, assertOk, HttpError } from "../http.js";
 import { mcpOk } from "../mcp.js";
 
 export const reviewTool = {
@@ -42,31 +42,58 @@ const InputSchema = z.object({
 
 export async function handleReview(args: unknown, config: Config) {
   const input = InputSchema.parse(args);
-  if (!config.wallet) {
-    throw new Error("Missing wallet config: set ONELY_WALLET_TYPE and ONELY_WALLET_KEY");
+  const solanaKey = config.walletSolana || (config.wallet?.type === "solana" ? config.wallet.key : null);
+  const evmKey = config.walletEvm || (config.wallet?.type === "evm" ? config.wallet.key : null);
+  if (!solanaKey && !evmKey) {
+    throw new Error(
+      "Missing wallet config: set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY (or legacy ONELY_WALLET_TYPE/KEY)"
+    );
   }
 
-  const walletAddress = config.wallet.type === "solana"
-    ? await getWalletAddress(config.wallet.type, config.wallet.key)
-    : await getEvmWalletAddress(config.wallet.key);
+  const solanaAddress = solanaKey
+    ? (await loadSolanaWallet(solanaKey)).publicKey.toBase58()
+    : null;
+  const evmAddress = evmKey ? (await loadEvmWallet(evmKey)).address : null;
 
-  const response = await fetchWithTimeout(`${config.apiBase}/api/reviews`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      purchaseId: input.purchaseId,
-      wallet: walletAddress,
-      token: input.reviewToken,
-      positive: input.positive,
-      comment: input.comment,
-    }),
-  });
+  const ordered = config.network === "solana"
+    ? [solanaAddress, evmAddress]
+    : [evmAddress, solanaAddress];
 
-  await assertOk(response, "Review failed");
+  let data: { reviewId: string } | null = null;
+  let lastError: unknown = null;
 
-  const data = (await response.json()) as { reviewId: string };
+  for (const walletAddress of ordered) {
+    if (!walletAddress) continue;
+    try {
+      const response = await fetchWithTimeout(`${config.apiBase}/api/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          purchaseId: input.purchaseId,
+          wallet: walletAddress,
+          token: input.reviewToken,
+          positive: input.positive,
+          comment: input.comment,
+        }),
+      });
+
+      await assertOk(response, "Review failed");
+      data = (await response.json()) as { reviewId: string };
+      break;
+    } catch (err) {
+      lastError = err;
+      if (err instanceof HttpError && (err.status === 401 || err.status === 404)) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (!data) {
+    throw lastError instanceof Error ? lastError : new Error("Review failed");
+  }
 
   return mcpOk({
     success: true,

@@ -13,11 +13,15 @@ export async function runSelfTest(argv: string[]): Promise<number> {
     log("1ly-mcp --self-test");
     log("");
     log("Required env:");
+    log("- ONELY_WALLET_SOLANA_KEY=/path/to/solana.json (or inline json array)");
+    log("- ONELY_WALLET_EVM_KEY=/path/to/evm.key (or inline 0x...)");
+    log("");
+    log("Legacy env (still supported):");
     log("- ONELY_WALLET_TYPE=solana|evm");
     log("- ONELY_WALLET_KEY=/path/to/key (or inline key)");
     log("");
     log("Optional env:");
-    log("- ONELY_API_BASE is not configurable (always https://1ly.store)");
+    log("- ONELY_API_BASE=https://1ly.store (optional override)");
     log("- ONELY_BUDGET_PER_CALL=1.00");
     log("- ONELY_BUDGET_DAILY=50.00");
     log("- ONELY_BUDGET_STATE_FILE=/path/to/state.json");
@@ -28,17 +32,19 @@ export async function runSelfTest(argv: string[]): Promise<number> {
     log("[self-test] loading config");
     const config = loadConfig();
     log(`[self-test] apiBase=${config.apiBase}`);
-    if (!config.wallet) {
-      throw new Error("Missing wallet config: set ONELY_WALLET_TYPE and ONELY_WALLET_KEY");
+    const solanaKey = config.walletSolana || (config.wallet?.type === "solana" ? config.wallet.key : null);
+    const evmKey = config.walletEvm || (config.wallet?.type === "evm" ? config.wallet.key : null);
+    if (!solanaKey && !evmKey) {
+      throw new Error("Missing wallet config: set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY");
     }
-    log(`[self-test] walletType=${config.wallet.type}`);
 
-    log("[self-test] loading wallet");
-    if (config.wallet.type === "solana") {
-      const kp = await loadSolanaWallet(config.wallet.key);
+    log("[self-test] loading wallets");
+    if (solanaKey) {
+      const kp = await loadSolanaWallet(solanaKey);
       log(`[self-test] solana pubkey=${kp.publicKey.toBase58()}`);
-    } else {
-      const account = await loadEvmWallet(config.wallet.key);
+    }
+    if (evmKey) {
+      const account = await loadEvmWallet(evmKey);
       log(`[self-test] evm address=${account.address}`);
     }
 

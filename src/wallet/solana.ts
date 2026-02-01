@@ -65,6 +65,7 @@ export async function buildSolanaPaymentSignature(
     headers["PAYMENT-SIGNATURE"] ||
     headers["Payment-Signature"] ||
     headers["payment-signature"] ||
-    headers["X-PAYMENT"]
+    headers["X-PAYMENT"] ||
+    Buffer.from(JSON.stringify(paymentPayload)).toString("base64")
   );
 }
