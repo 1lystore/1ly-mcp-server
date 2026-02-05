@@ -20,6 +20,11 @@ import { createStoreTool, handleCreateStore } from "./tools/create-store.js";
 import { listKeysTool, handleListKeys } from "./tools/list-keys.js";
 import { createKeyTool, handleCreateKey } from "./tools/create-key.js";
 import { revokeKeyTool, handleRevokeKey } from "./tools/revoke-key.js";
+import { withdrawTool, handleWithdraw } from "./tools/withdraw.js";
+import { listWithdrawalsTool, handleListWithdrawals } from "./tools/list-withdrawals.js";
+import { updateProfileTool, handleUpdateProfile } from "./tools/update-profile.js";
+import { updateSocialsTool, handleUpdateSocials } from "./tools/update-socials.js";
+import { updateAvatarTool, handleUpdateAvatar } from "./tools/update-avatar.js";
 import { loadConfigWithStoredKey } from "./config.js";
 import { runSelfTest } from "./selftest.js";
 import { mcpError } from "./mcp.js";
@@ -60,6 +65,11 @@ async function main() {
       listKeysTool,
       createKeyTool,
       revokeKeyTool,
+      withdrawTool,
+      listWithdrawalsTool,
+      updateProfileTool,
+      updateSocialsTool,
+      updateAvatarTool,
     ],
   }));
 
@@ -98,6 +108,16 @@ async function main() {
           return await handleCreateKey(args, config);
         case "1ly_revoke_key":
           return await handleRevokeKey(args, config);
+        case "1ly_withdraw":
+          return await handleWithdraw(args, config);
+        case "1ly_list_withdrawals":
+          return await handleListWithdrawals(args, config);
+        case "1ly_update_profile":
+          return await handleUpdateProfile(args, config);
+        case "1ly_update_socials":
+          return await handleUpdateSocials(args, config);
+        case "1ly_update_avatar":
+          return await handleUpdateAvatar(args, config);
 
         default:
           return {

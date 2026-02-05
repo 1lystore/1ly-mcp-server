@@ -17,6 +17,7 @@ export const createLinkTool = {
       currency: { type: "string", enum: ["USDC"] },
       isPublic: { type: "boolean" },
       isStealth: { type: "boolean" },
+      webhookUrl: { type: "string", description: "Optional webhook URL for purchase events" },
     },
     required: ["title", "url"],
   },
@@ -31,6 +32,7 @@ const InputSchema = z.object({
   currency: z.literal("USDC").optional(),
   isPublic: z.boolean().optional(),
   isStealth: z.boolean().optional(),
+  webhookUrl: z.string().url().optional(),
 });
 
 export async function handleCreateLink(args: unknown, config: Config) {
@@ -54,6 +56,7 @@ export async function handleCreateLink(args: unknown, config: Config) {
       currency: input.currency || "USDC",
       isPublic: input.isPublic ?? true,
       isStealth: input.isStealth ?? false,
+      webhookUrl: input.webhookUrl,
     }),
   });
 

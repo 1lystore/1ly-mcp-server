@@ -17,6 +17,7 @@ export const updateLinkTool = {
       price: { type: "string" },
       isPublic: { type: "boolean" },
       isStealth: { type: "boolean" },
+      webhookUrl: { type: "string" },
     },
     required: ["id"],
   },
@@ -31,6 +32,7 @@ const InputSchema = z.object({
   price: z.string().regex(/^\d+(\.\d{1,18})?$/).optional(),
   isPublic: z.boolean().optional(),
   isStealth: z.boolean().optional(),
+  webhookUrl: z.string().url().optional().nullable(),
 });
 
 export async function handleUpdateLink(args: unknown, config: Config) {
@@ -53,6 +55,7 @@ export async function handleUpdateLink(args: unknown, config: Config) {
       price: input.price,
       isPublic: input.isPublic,
       isStealth: input.isStealth,
+      webhookUrl: input.webhookUrl,
     }),
   });
 

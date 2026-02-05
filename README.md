@@ -362,13 +362,15 @@ Create a new API link (paid or free).
 | `currency` | string | No | Always `"USDC"` |
 | `isPublic` | boolean | No | List publicly (default: `true`) |
 | `isStealth` | boolean | No | Hide from search (default: `false`) |
+| `webhookUrl` | string | No | Optional webhook URL for purchase events |
 
 ```json
 {
   "title": "Premium Weather API",
   "url": "https://api.example.com/weather",
   "price": "0.05",
-  "description": "Real-time weather data"
+  "description": "Real-time weather data",
+  "webhookUrl": "https://example.com/webhooks/1ly"
 }
 ```
 
@@ -452,6 +454,7 @@ Update an existing API link.
 | `slug` | string | No | New slug |
 | `isPublic` | boolean | No | Update visibility |
 | `isStealth` | boolean | No | Update stealth mode |
+| `webhookUrl` | string | No | Update webhook URL (set to `null` to clear) |
 
 ```json
 {
@@ -636,6 +639,98 @@ Revoke an API key.
 
 ---
 
+#### `1ly_update_profile`
+
+Update basic profile fields.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `username` | string | No | New username (lowercase + underscores) |
+| `displayName` | string | No | Public display name |
+| `bio` | string | No | Short bio (max 160 chars) |
+
+```json
+{
+  "displayName": "My Store",
+  "bio": "We build paid APIs for agents."
+}
+```
+
+---
+
+#### `1ly_update_socials`
+
+Replace socials list (up to 10).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `socials` | array | **Yes** | Social links |
+
+```json
+{
+  "socials": [
+    { "type": "x", "url": "https://x.com/1ly_store", "displayOrder": 0, "isVisible": true },
+    { "type": "website", "url": "https://1ly.store", "displayOrder": 1 }
+  ]
+}
+```
+
+---
+
+#### `1ly_update_avatar`
+
+Update store avatar using a public URL or base64 image.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `avatarUrl` | string | No | Public image URL |
+| `imageBase64` | string | No | Base64-encoded image bytes |
+| `mimeType` | string | No | `image/png`, `image/jpeg`, `image/webp`, `image/gif` |
+| `filename` | string | No | Optional filename |
+
+```json
+{
+  "avatarUrl": "https://example.com/avatar.png"
+}
+```
+
+---
+
+#### `1ly_withdraw`
+
+Request a withdrawal (Solana only).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `amount` | string | **Yes** | Amount in USDC (min `0.1`) |
+| `walletAddress` | string | **Yes** | Solana wallet address |
+
+```json
+{
+  "amount": "1.25",
+  "walletAddress": "7GmjjDitbCwW77dZmJko3pBDWhEh12soGNLR7zwAkf6M"
+}
+```
+
+---
+
+#### `1ly_list_withdrawals`
+
+List recent withdrawals.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `limit` | number | No | Max items (default 25, max 100) |
+| `cursor` | string | No | Pagination cursor |
+
+```json
+{
+  "limit": 10
+}
+```
+
+---
+
 ## Common Workflows
 
 ### Workflow 1: Pay for an API
@@ -651,7 +746,7 @@ Revoke an API key.
 
 ```
 1. 1ly_create_store({ "username": "mystore", "displayName": "My Store" })
-2. 1ly_create_link({ "title": "My API", "url": "https://api.example.com", "price": "0.10" })
+2. 1ly_create_link({ "title": "My API", "url": "https://api.example.com", "price": "0.10", "webhookUrl": "https://example.com/webhooks/1ly" })
 3. 1ly_get_stats({ "period": "7d" })
 ```
 
@@ -661,6 +756,21 @@ Revoke an API key.
 1. 1ly_list_links({})
 2. 1ly_update_link({ "id": "...", "price": "0.20" })
 3. 1ly_delete_link({ "id": "..." })
+```
+
+### Workflow 4: Update Profile + Socials
+
+```
+1. 1ly_update_profile({ "displayName": "My Store", "bio": "We build paid APIs." })
+2. 1ly_update_socials({ "socials": [{ "type": "x", "url": "https://x.com/1ly_store" }] })
+3. 1ly_update_avatar({ "avatarUrl": "https://example.com/avatar.png" })
+```
+
+### Workflow 5: Withdraw Funds
+
+```
+1. 1ly_withdraw({ "amount": "1.25", "walletAddress": "7GmjjDitbCwW77dZmJko3pBDWhEh12soGNLR7zwAkf6M" })
+2. 1ly_list_withdrawals({ "limit": 10 })
 ```
 
 ---
