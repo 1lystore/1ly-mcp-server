@@ -6,23 +6,23 @@ MCP server for [1ly.store](https://1ly.store) — Enable AI agents to discover, 
 
 This MCP server gives AI agents the ability to:
 
-- **Buy** — Search, discover, and pay for APIs, resources with automatic crypto payments (x402 protocol)
+- **Buy** — Search, discover, and pay for APIs/resources with automatic crypto payments (x402 protocol)
 - **Sell** — Create a store, list paid API endpoints or resources, and accept payments
 
 **Supported Networks:** Solana (mainnet), Base (mainnet)  
 **Payment Currency:** USDC
 
 ## What is this?
-This MCP server enables AI agents (Claude, GPT, Cursor, or any AI Agents etc.) to:
+This MCP server enables AI agents (Claude, GPT, Cursor, and more) to:
 
-Create store on 1ly.store 
-Accept payments for your own APIs/resources using 1ly as the payment layer
-Create paid links that any x402‑compatible agent can call and pay automatically
-Paid links are listed on the 1ly marketplace by default for instant agent discovery
-Search for APIs and services on 1ly.store
-Get details about pricing, reviews, and usage
-Call paid APIs with automatic crypto payments (x402 protocol) in secure way.
-Leave reviews after purchases, optional but recommended to make better experience for 1ly users
+- Create a store on 1ly.store
+- Accept payments for your APIs/resources using 1ly as the payment layer
+- Create paid links that any x402‑compatible agent can call and pay automatically
+- List paid links on the 1ly marketplace for instant agent discovery
+- Search for APIs and services on 1ly.store
+- Get details about pricing, reviews, and usage
+- Call paid APIs with automatic crypto payments (x402 protocol) securely
+- Leave reviews after purchases (optional but recommended)
 
 ---
 
@@ -78,8 +78,8 @@ ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server --self-
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ONELY_WALLET_SOLANA_KEY` | Yes* | Path to Solana keypair JSON file, or inline JSON array |
-| `ONELY_WALLET_EVM_KEY` | Yes* | Path to EVM private key file, or inline hex key (with or without `0x`) |
+| `ONELY_WALLET_SOLANA_KEY` | No | Path to Solana keypair JSON file, or inline JSON array |
+| `ONELY_WALLET_EVM_KEY` | No | Path to EVM private key file, or inline hex key (with or without `0x`) |
 | `ONELY_API_KEY` | No | API key for seller tools. Auto-loaded after `1ly_create_store` |
 | `ONELY_BUDGET_PER_CALL` | No | Max USD per API call (default: `1.00`) |
 | `ONELY_BUDGET_DAILY` | No | Daily USD spending limit (default: `50.00`) |
@@ -88,9 +88,8 @@ ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server --self-
 | `ONELY_API_BASE` | No | API base URL (default: `https://1ly.store`) |
 | `ONELY_WALLET_PROVIDER` | No | `raw` (default) or `coinbase` (Agentic Wallet, Base-only) |
 
-*At least one wallet is required for payments.
-
-**Wallet path rule:** wallet files must be located in your home directory (recommended) or `/tmp`. Paths outside those locations are rejected for security. `~/` is supported and expands to your home directory.
+*A wallet is required only for **paid** calls. For free search/details you can run without a wallet.*
+Use **one** of: `ONELY_WALLET_SOLANA_KEY`, `ONELY_WALLET_EVM_KEY`, or `ONELY_WALLET_PROVIDER=coinbase`.
 
 ### Claude Desktop Configuration
 
@@ -157,9 +156,9 @@ Add to `claude_desktop_config.json`:
 
 ## Tools Reference
 
-### Buyer Tools (Pay for APIs)
+### Buyer Tools
 
-These tools require a **wallet** configured.
+Wallet **required only for paid calls** (`1ly_call`). Search/details work without a wallet.
 
 #### `1ly_search`
 
@@ -818,7 +817,7 @@ Fund with USDC on Solana mainnet.
 
 ### EVM (Base)
 
-Export your private key from MetaMask/Rabby and save to a file:
+Export your private key or Create a new keypair:
 ```bash
 mkdir -p ~/.1ly/wallets
 echo "0xYOUR_PRIVATE_KEY" > ~/.1ly/wallets/evm.key
@@ -852,7 +851,9 @@ All responses follow this structure:
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `Missing wallet config` | No wallet env var set | Set `ONELY_WALLET_SOLANA_KEY` or `ONELY_WALLET_EVM_KEY` |
+| `Missing wallet config` | No wallet env var set | Set `ONELY_WALLET_SOLANA_KEY`, `ONELY_WALLET_EVM_KEY`, or `ONELY_WALLET_PROVIDER=coinbase` |
+| `Agentic Wallet not running` | Wallet app not running or not authenticated | Open the Agentic Wallet app and sign in (`npx awal show`) |
+| `Agentic Wallet Base-only` | API requires Solana payment | Use raw Solana wallet or a Base-compatible endpoint |
 | `Missing ONELY_API_KEY` | Seller tool called without API key | Run `1ly_create_store` first |
 | `Price exceeds per-call budget` | API costs more than limit | Increase `ONELY_BUDGET_PER_CALL` |
 | `Daily budget exceeded` | Spent more than daily limit | Wait until tomorrow or increase `ONELY_BUDGET_DAILY` |
