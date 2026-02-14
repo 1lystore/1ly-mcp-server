@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import type { Config } from "./config.js";
+import { logSecurityEvent } from "./security-log.js";
 
 interface BudgetState {
   /** ISO date string (YYYY-MM-DD) */
@@ -46,7 +47,10 @@ function saveBudgetState(state: BudgetState): void {
   const filePath = getBudgetStatePath();
 
   try {
-    fs.writeFileSync(filePath, JSON.stringify(state, null, 2), { encoding: "utf-8" });
+    fs.writeFileSync(filePath, JSON.stringify(state, null, 2), {
+      encoding: "utf-8",
+      mode: 0o600, // Owner read/write only (security: prevent other users from reading spending data)
+    });
   } catch {
     // If we cannot persist, we still allow the call; fail-open is safer for UX
   }
@@ -64,6 +68,15 @@ export function checkAndRecordDailySpend(config: Config, priceUsd: number): void
   const next = current + priceUsd;
 
   if (next > config.budgets.daily) {
+    // Log budget violation for audit trail
+    logSecurityEvent("budget_exceeded", {
+      type: "daily",
+      currentSpent: current,
+      limit: config.budgets.daily,
+      attemptedAmount: priceUsd,
+      wouldTotal: next,
+    });
+
     throw new Error(
       `Price $${priceUsd.toFixed(
         4
@@ -79,5 +92,12 @@ export function checkAndRecordDailySpend(config: Config, priceUsd: number): void
   };
 
   saveBudgetState(updated);
+
+  // Log successful payment for audit trail
+  logSecurityEvent("api_call_paid", {
+    amount: priceUsd,
+    dailyTotal: next,
+    dailyLimit: config.budgets.daily,
+  });
 }
 

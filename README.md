@@ -684,7 +684,7 @@ Update store avatar using a public URL or base64 image.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `avatarUrl` | string | No | Public image URL |
-| `imageBase64` | string | No | Base64-encoded image bytes |
+| `imageBase64` | string | No | Base64-encoded image (max 5MB decoded) |
 | `mimeType` | string | No | `image/png`, `image/jpeg`, `image/webp`, `image/gif` |
 | `filename` | string | No | Optional filename |
 

@@ -1,5 +1,7 @@
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { base } from "viem/chains";
+import { resolve, normalize } from "path";
+import * as os from "os";
 import { x402Client } from "@x402/core/client";
 import { x402HTTPClient } from "@x402/core/http";
 import { ExactEvmScheme } from "@x402/evm";
@@ -9,12 +11,47 @@ import type { PaymentRequired } from "@x402/core/types";
 // Mainnet only
 const CHAIN = base;
 
+/**
+ * Validates wallet file path to prevent directory traversal attacks.
+ * Only allows files in home directory or /tmp (for testing).
+ */
+function validateWalletPath(keyPath: string): void {
+  try {
+    const normalizedPath = normalize(resolve(keyPath));
+    const homeDir = os.homedir();
+
+    // Allow files in home directory or /tmp
+    const isInHome = normalizedPath.startsWith(homeDir);
+    const isInTmp = normalizedPath.startsWith("/tmp") || normalizedPath.startsWith(os.tmpdir());
+
+    if (!isInHome && !isInTmp) {
+      throw new Error(
+        "Wallet file must be in home directory or /tmp for security. Path: " + normalizedPath
+      );
+    }
+
+    // Block sensitive directories
+    const blockedPaths = [".ssh", ".gnupg", ".aws", ".kube"];
+    if (blockedPaths.some((p) => normalizedPath.includes(`/${p}/`))) {
+      throw new Error("Cannot load wallet from sensitive directory");
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("Wallet file must be")) {
+      throw err;
+    }
+    throw new Error("Invalid wallet file path");
+  }
+}
+
 export async function loadEvmWallet(keyInput: string): Promise<PrivateKeyAccount> {
   let privateKey: `0x${string}`;
 
   if (keyInput.startsWith("0x")) {
+    // Inline hex key - no path validation needed
     privateKey = keyInput as `0x${string}`;
   } else if (fs.existsSync(keyInput)) {
+    // File path - validate before reading
+    validateWalletPath(keyInput);
     const content = fs.readFileSync(keyInput, "utf-8").trim();
     privateKey = (content.startsWith("0x") ? content : `0x${content}`) as `0x${string}`;
   } else {
@@ -161,8 +198,11 @@ export async function loadEvmWalletWithKey(keyInput: string): Promise<{ account:
   let privateKey: `0x${string}`;
 
   if (keyInput.startsWith("0x")) {
+    // Inline hex key - no path validation needed
     privateKey = keyInput as `0x${string}`;
   } else if (fs.existsSync(keyInput)) {
+    // File path - validate before reading
+    validateWalletPath(keyInput);
     const content = fs.readFileSync(keyInput, "utf-8").trim();
     privateKey = (content.startsWith("0x") ? content : `0x${content}`) as `0x${string}`;
   } else {

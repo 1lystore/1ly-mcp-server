@@ -19,9 +19,19 @@ export const updateAvatarTool = {
 
 const InputSchema = z.object({
   avatarUrl: z.string().url().optional(),
-  imageBase64: z.string().min(1).optional(),
-  mimeType: z.string().min(3).optional(),
-  filename: z.string().optional(),
+  imageBase64: z
+    .string()
+    .min(1)
+    .max(10_485_760) // 10MB max (base64 encoded ~= 1.37x original size)
+    .optional(),
+  mimeType: z
+    .enum(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]) // Strict MIME type validation
+    .optional(),
+  filename: z
+    .string()
+    .regex(/^[a-zA-Z0-9_.-]+$/) // Prevent path traversal in filename
+    .max(255)
+    .optional(),
 });
 
 export async function handleUpdateAvatar(args: unknown, config: Config) {
@@ -49,7 +59,27 @@ export async function handleUpdateAvatar(args: unknown, config: Config) {
     throw new Error("Provide either avatarUrl or imageBase64 + mimeType");
   }
 
-  const buffer = Buffer.from(input.imageBase64, "base64");
+  // Decode and validate base64
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(input.imageBase64, "base64");
+  } catch (err) {
+    throw new Error("Invalid base64 encoding");
+  }
+
+  // Validate decoded size (5MB max for actual image data)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (buffer.length > maxSize) {
+    throw new Error(
+      `Image size ${(buffer.length / 1024 / 1024).toFixed(2)}MB exceeds 5MB limit`
+    );
+  }
+
+  // Minimum size check (prevent empty uploads)
+  if (buffer.length < 100) {
+    throw new Error("Image too small - minimum 100 bytes");
+  }
+
   const blob = new Blob([buffer], { type: input.mimeType });
   const formData = new FormData();
   formData.append("file", blob, input.filename || "avatar.png");

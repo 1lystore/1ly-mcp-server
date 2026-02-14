@@ -1,6 +1,11 @@
+import { RateLimiter } from "./rate-limit.js";
+
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_RETRIES = 2;
 const DEFAULT_RETRY_DELAY_MS = 500;
+
+// Global rate limiter: 100 requests per minute to prevent abuse
+const globalRateLimiter = new RateLimiter(100, 60_000);
 
 export interface FetchOptions extends RequestInit {
   /** Override timeout in milliseconds (default: 15000) */
@@ -28,7 +33,24 @@ function sleep(ms: number) {
 }
 
 /**
+ * Redacts sensitive information from error messages
+ */
+function redactSensitive(text: string): string {
+  return text
+    .replace(/1ly_live_[a-zA-Z0-9]+/g, "1ly_live_***") // API keys
+    .replace(/1ly_test_[a-zA-Z0-9]+/g, "1ly_test_***") // Test API keys
+    .replace(/[13][a-km-zA-HJ-NP-Z1-9]{25,34}/g, "***") // Bitcoin/Solana addresses
+    .replace(/0x[a-fA-F0-9]{40}/g, "0x***") // Ethereum addresses
+    .replace(/"apiKey"\s*:\s*"[^"]+"/g, '"apiKey":"***"')
+    .replace(/"token"\s*:\s*"[^"]+"/g, '"token":"***"')
+    .replace(/"reviewToken"\s*:\s*"[^"]+"/g, '"reviewToken":"***"')
+    .replace(/"privateKey"\s*:\s*"[^"]+"/g, '"privateKey":"***"')
+    .replace(/"secretKey"\s*:\s*\[[^\]]+\]/g, '"secretKey":"***"');
+}
+
+/**
  * fetchWithTimeout wraps the global fetch with:
+ * - rate limiting to prevent abuse
  * - per-request timeout using AbortController
  * - basic retry logic for network/timeout errors
  */
@@ -36,6 +58,13 @@ export async function fetchWithTimeout(
   url: string,
   options: FetchOptions = {}
 ): Promise<Response> {
+  // Rate limit check
+  if (!globalRateLimiter.check()) {
+    throw new Error(
+      `Rate limit exceeded: too many requests (max 100 per minute). Current: ${globalRateLimiter.getCurrentCount()}`
+    );
+  }
+
   const {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = DEFAULT_RETRIES,
@@ -84,6 +113,7 @@ export async function fetchWithTimeout(
 /**
  * Helper to throw a rich HttpError when response.ok is false.
  * Reads a small snippet of the body (if any) for easier debugging.
+ * Redacts sensitive information before including in error message.
  */
 export async function assertOk(
   response: Response,
@@ -94,7 +124,9 @@ export async function assertOk(
   let bodySnippet: string | undefined;
   try {
     const text = await response.text();
-    bodySnippet = text.slice(0, 500);
+    // Redact sensitive data before including in error
+    const redacted = redactSensitive(text.slice(0, 500));
+    bodySnippet = redacted;
   } catch {
     // Ignore body read errors
   }

@@ -41,7 +41,7 @@ async function main() {
   const server = new Server(
     {
       name: "1ly",
-      version: "0.1.2",
+      version: "0.1.4",
     },
     {
       capabilities: {

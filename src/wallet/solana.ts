@@ -1,5 +1,7 @@
 import { Keypair } from "@solana/web3.js";
 import * as fs from "fs";
+import { resolve, normalize } from "path";
+import * as os from "os";
 import { x402Client } from "@x402/core/client";
 import { x402HTTPClient } from "@x402/core/http";
 import { registerExactSvmScheme } from "@x402/svm/exact/client";
@@ -7,12 +9,47 @@ import { toClientSvmSigner } from "@x402/svm";
 import { createKeyPairSignerFromBytes } from "@solana/signers";
 import type { PaymentRequired } from "@x402/core/types";
 
+/**
+ * Validates wallet file path to prevent directory traversal attacks.
+ * Only allows files in home directory or /tmp (for testing).
+ */
+function validateWalletPath(keyPath: string): void {
+  try {
+    const normalizedPath = normalize(resolve(keyPath));
+    const homeDir = os.homedir();
+
+    // Allow files in home directory or /tmp
+    const isInHome = normalizedPath.startsWith(homeDir);
+    const isInTmp = normalizedPath.startsWith("/tmp") || normalizedPath.startsWith(os.tmpdir());
+
+    if (!isInHome && !isInTmp) {
+      throw new Error(
+        "Wallet file must be in home directory or /tmp for security. Path: " + normalizedPath
+      );
+    }
+
+    // Block sensitive directories
+    const blockedPaths = [".ssh", ".gnupg", ".aws", ".kube"];
+    if (blockedPaths.some((p) => normalizedPath.includes(`/${p}/`))) {
+      throw new Error("Cannot load wallet from sensitive directory");
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("Wallet file must be")) {
+      throw err;
+    }
+    throw new Error("Invalid wallet file path");
+  }
+}
+
 export async function loadSolanaWallet(keyPath: string): Promise<Keypair> {
   let keyData: number[];
 
   if (keyPath.startsWith("[")) {
+    // Inline JSON array format - no path validation needed
     keyData = JSON.parse(keyPath);
   } else if (fs.existsSync(keyPath)) {
+    // File path - validate before reading
+    validateWalletPath(keyPath);
     const fileContent = fs.readFileSync(keyPath, "utf-8");
     const parsed = JSON.parse(fileContent);
     
