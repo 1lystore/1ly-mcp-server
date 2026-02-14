@@ -11,6 +11,7 @@ function mkConfig(daily: number): Config {
     wallet: { type: "solana", key: "/dev/null" },
     budgets: { perCall: 10, daily },
     network: "solana",
+    walletProvider: "raw",
   };
 }
 
@@ -36,4 +37,3 @@ describe("budget", () => {
     expect(() => checkAndRecordDailySpend(config, 0.2)).toThrow(/daily budget/i);
   });
 });
-

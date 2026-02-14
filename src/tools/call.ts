@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Config } from "../config.js";
 import { buildSolanaPaymentSignature, loadSolanaWallet } from "../wallet/solana.js";
 import { buildEvmPaymentSignature } from "../wallet/evm.js";
+import { makeX402RequestViaAgenticWallet } from "../wallet/agentic.js";
 import { fetchWithTimeout, assertOk } from "../http.js";
 import { checkAndRecordDailySpend } from "../budget.js";
 import { mcpOk } from "../mcp.js";
@@ -57,20 +58,16 @@ export async function handleCall(args: unknown, config: Config) {
   const input = InputSchema.parse(args);
   const solanaKey = config.walletSolana || (config.wallet?.type === "solana" ? config.wallet.key : null);
   const evmKey = config.walletEvm || (config.wallet?.type === "evm" ? config.wallet.key : null);
-  if (!solanaKey && !evmKey) {
-    throw new Error(
-      "Missing wallet config: set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY (or legacy ONELY_WALLET_TYPE/KEY)"
-    );
-  }
   const endpointPath = parseEndpoint(input.endpoint);
   const fullUrl = `${config.apiBase}${endpointPath}`;
+  const requestHeaders = {
+    "Content-Type": "application/json",
+    ...input.headers,
+  };
 
   const initialResponse = await fetchWithTimeout(fullUrl, {
     method: input.method,
-    headers: {
-      "Content-Type": "application/json",
-      ...input.headers,
-    },
+    headers: requestHeaders,
     body: input.body ? JSON.stringify(input.body) : undefined,
   });
 
@@ -94,7 +91,8 @@ export async function handleCall(args: unknown, config: Config) {
       maxAmountRequired?: string;
       payTo: string;
       asset?: string;
-      extra?: { feePayer?: string };
+      maxTimeoutSeconds?: number;
+      extra?: Record<string, unknown>;
     }>;
   } = {};
   try {
@@ -104,7 +102,9 @@ export async function handleCall(args: unknown, config: Config) {
   }
 
   const preferredNetwork =
-    solanaKey && !evmKey
+    config.walletProvider === "coinbase"
+      ? "eip155"
+      : solanaKey && !evmKey
       ? "solana"
       : evmKey && !solanaKey
       ? "eip155"
@@ -135,17 +135,71 @@ export async function handleCall(args: unknown, config: Config) {
     );
   }
 
-  // Enforce and record daily spending
-  checkAndRecordDailySpend(config, priceUsd);
-
-  // Build x402 payment signature header (v2)
-  let paymentSignature: string;
   const network = String(accepts.network || "");
   const shouldUseSolana = network.startsWith("solana:")
     ? true
     : network.startsWith("eip155:")
     ? false
     : preferredNetwork === "solana";
+
+  if (config.walletProvider === "coinbase") {
+    if (shouldUseSolana) {
+      throw new Error("Agentic Wallet only supports Base (EVM). Solana payments are not supported.");
+    }
+
+    // Enforce and record daily spending
+    checkAndRecordDailySpend(config, priceUsd);
+
+    const baseAccept = {
+      scheme: accepts.scheme,
+      network: accepts.network,
+      amount: accepts.amount,
+      maxAmountRequired: accepts.maxAmountRequired,
+      payTo: accepts.payTo,
+      asset: accepts.asset,
+      maxTimeoutSeconds: accepts.maxTimeoutSeconds,
+      extra: accepts.extra,
+    };
+
+    const result = await makeX402RequestViaAgenticWallet(
+      {
+        baseURL: config.apiBase,
+        path: endpointPath,
+        method: input.method,
+        body: input.body,
+        headers: requestHeaders,
+        maxAmountPerRequest: priceInSmallestUnit,
+        paymentRequirements: [baseAccept],
+      },
+      30_000
+    );
+
+    if (result.status < 200 || result.status >= 300) {
+      throw new Error(
+        `Payment failed: ${result.status} - ${result.statusText || "Agentic Wallet error"}`
+      );
+    }
+
+    return mcpOk(result.data ?? {});
+  }
+
+  if (shouldUseSolana && !solanaKey) {
+    throw new Error("Solana wallet not configured for this payment");
+  }
+  if (!shouldUseSolana && !evmKey) {
+    throw new Error("EVM wallet not configured for this payment");
+  }
+  if (!solanaKey && !evmKey) {
+    throw new Error(
+      "Missing wallet config: set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY (or legacy ONELY_WALLET_TYPE/KEY)"
+    );
+  }
+
+  // Enforce and record daily spending
+  checkAndRecordDailySpend(config, priceUsd);
+
+  // Build x402 payment signature header (v2)
+  let paymentSignature: string;
 
   if (shouldUseSolana) {
     if (!solanaKey) {
@@ -185,8 +239,7 @@ export async function handleCall(args: unknown, config: Config) {
   const paidResponse = await fetchWithTimeout(fullUrl, {
     method: input.method,
     headers: {
-      "Content-Type": "application/json",
-      ...input.headers,
+      ...requestHeaders,
       "payment-signature": paymentSignature,
     },
     body: input.body ? JSON.stringify(input.body) : undefined,

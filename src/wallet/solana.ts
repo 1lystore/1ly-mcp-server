@@ -9,6 +9,11 @@ import { toClientSvmSigner } from "@x402/svm";
 import { createKeyPairSignerFromBytes } from "@solana/signers";
 import type { PaymentRequired } from "@x402/core/types";
 
+function expandTilde(inputPath: string): string {
+  if (!inputPath.startsWith("~/")) return inputPath;
+  return resolve(os.homedir(), inputPath.slice(2));
+}
+
 /**
  * Validates wallet file path to prevent directory traversal attacks.
  * Only allows files in home directory or /tmp (for testing).
@@ -47,10 +52,14 @@ export async function loadSolanaWallet(keyPath: string): Promise<Keypair> {
   if (keyPath.startsWith("[")) {
     // Inline JSON array format - no path validation needed
     keyData = JSON.parse(keyPath);
-  } else if (fs.existsSync(keyPath)) {
+  } else {
+    const expandedPath = expandTilde(keyPath);
+    if (!fs.existsSync(expandedPath)) {
+      throw new Error(`Wallet key file not found: ${keyPath}`);
+    }
     // File path - validate before reading
-    validateWalletPath(keyPath);
-    const fileContent = fs.readFileSync(keyPath, "utf-8");
+    validateWalletPath(expandedPath);
+    const fileContent = fs.readFileSync(expandedPath, "utf-8");
     const parsed = JSON.parse(fileContent);
     
     // Handle both formats:
@@ -63,8 +72,6 @@ export async function loadSolanaWallet(keyPath: string): Promise<Keypair> {
     } else {
       throw new Error("Invalid wallet file format");
     }
-  } else {
-    throw new Error(`Wallet key file not found: ${keyPath}`);
   }
 
   return Keypair.fromSecretKey(Uint8Array.from(keyData));

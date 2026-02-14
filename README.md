@@ -28,25 +28,46 @@ Leave reviews after purchases, optional but recommended to make better experienc
 
 ## Quick Start
 
+**Wallet path rule:** wallet files must be located in your home directory (recommended) or `/tmp`. Paths outside those locations are rejected for security. `~/` is supported and expands to your home directory.
+
 ### 1. Install and Run
+
+#### Option A: Raw Wallet (default)
 
 ```bash
 # Solana wallet
-ONELY_WALLET_SOLANA_KEY="/path/to/solana-wallet.json" npx @1ly/mcp-server
+ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server
 
 # OR Base/EVM wallet
-ONELY_WALLET_EVM_KEY="/path/to/evm.key" npx @1ly/mcp-server
+ONELY_WALLET_EVM_KEY="~/.1ly/wallets/evm.key" npx @1ly/mcp-server
 
 # OR both wallets
-ONELY_WALLET_SOLANA_KEY="/path/to/solana-wallet.json" \
-ONELY_WALLET_EVM_KEY="/path/to/evm.key" \
+ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" \
+ONELY_WALLET_EVM_KEY="~/.1ly/wallets/evm.key" \
 npx @1ly/mcp-server
+```
+
+#### Option B: Coinbase Agentic Wallet (Base only)
+
+```bash
+ONELY_WALLET_PROVIDER="coinbase" npx @1ly/mcp-server
+```
+
+> When using Agentic Wallet, you **do not** pass raw private keys.  
+> Make sure the Coinbase Agentic Wallet app is running and authenticated.
+
+If you haven't installed Agentic Wallet yet:
+- Follow Coinbase Agentic Wallet docs: `https://docs.cdp.coinbase.com/agentic-wallet/welcome`
+- Quick install:
+```bash
+npx skills add coinbase/agentic-wallet-skills
+npx awal show
 ```
 
 ### 2. Verify Setup
 
 ```bash
-ONELY_WALLET_SOLANA_KEY="/path/to/solana-wallet.json" npx @1ly/mcp-server --self-test
+ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server --self-test
 ```
 
 ---
@@ -65,8 +86,11 @@ ONELY_WALLET_SOLANA_KEY="/path/to/solana-wallet.json" npx @1ly/mcp-server --self
 | `ONELY_BUDGET_STATE_FILE` | No | Path to local budget state file (default: `~/.1ly-mcp-budget.json`) |
 | `ONELY_NETWORK` | No | Preferred network: `solana` or `base` (default: `solana`) |
 | `ONELY_API_BASE` | No | API base URL (default: `https://1ly.store`) |
+| `ONELY_WALLET_PROVIDER` | No | `raw` (default) or `coinbase` (Agentic Wallet, Base-only) |
 
 *At least one wallet is required for payments.
+
+**Wallet path rule:** wallet files must be located in your home directory (recommended) or `/tmp`. Paths outside those locations are rejected for security. `~/` is supported and expands to your home directory.
 
 ### Claude Desktop Configuration
 
@@ -79,7 +103,7 @@ Add to `claude_desktop_config.json`:
       "command": "npx",
       "args": ["@1ly/mcp-server"],
       "env": {
-        "ONELY_WALLET_SOLANA_KEY": "/absolute/path/to/solana-wallet.json",
+        "ONELY_WALLET_SOLANA_KEY": "~/.1ly/wallets/solana.json",
         "ONELY_BUDGET_PER_CALL": "1.00",
         "ONELY_BUDGET_DAILY": "50.00"
       }
@@ -98,7 +122,7 @@ Add to `claude_desktop_config.json`:
       "command": "npx",
       "args": ["@1ly/mcp-server"],
       "env": {
-        "ONELY_WALLET_EVM_KEY": "/absolute/path/to/evm.key",
+        "ONELY_WALLET_EVM_KEY": "~/.1ly/wallets/evm.key",
         "ONELY_BUDGET_PER_CALL": "1.00",
         "ONELY_BUDGET_DAILY": "50.00"
       }
@@ -118,8 +142,8 @@ Add to `claude_desktop_config.json`:
       "command": "npx",
       "args": ["@1ly/mcp-server"],
       "env": {
-        "ONELY_WALLET_SOLANA_KEY": "/absolute/path/to/solana-wallet.json",
-        "ONELY_WALLET_EVM_KEY": "/absolute/path/to/evm.key",
+        "ONELY_WALLET_SOLANA_KEY": "~/.1ly/wallets/solana.json",
+        "ONELY_WALLET_EVM_KEY": "~/.1ly/wallets/evm.key",
         "ONELY_BUDGET_PER_CALL": "1.00",
         "ONELY_BUDGET_DAILY": "50.00"
       }
@@ -259,6 +283,11 @@ Call a paid API with automatic crypto payment.
 
 > **Note:** The `_1ly` object contains tokens needed for `1ly_review`. Save these if you want to leave a review.  
 > For free APIs, `_1ly` may be `{ "note": "No payment required (free API)" }`.
+
+**Agentic Wallet (Base only):**
+- Set `ONELY_WALLET_PROVIDER=coinbase`.
+- Ensure Coinbase Agentic Wallet is installed, running, and authenticated.
+- Local private keys are not required.
 
 ---
 
@@ -781,7 +810,8 @@ List recent withdrawals.
 
 Create a new keypair:
 ```bash
-solana-keygen new -o ./wallets/solana.json
+mkdir -p ~/.1ly/wallets
+solana-keygen new -o ~/.1ly/wallets/solana.json
 ```
 
 Fund with USDC on Solana mainnet.
@@ -790,7 +820,8 @@ Fund with USDC on Solana mainnet.
 
 Export your private key from MetaMask/Rabby and save to a file:
 ```bash
-echo "0xYOUR_PRIVATE_KEY" > ./wallets/evm.key
+mkdir -p ~/.1ly/wallets
+echo "0xYOUR_PRIVATE_KEY" > ~/.1ly/wallets/evm.key
 ```
 
 Fund with USDC on Base mainnet.

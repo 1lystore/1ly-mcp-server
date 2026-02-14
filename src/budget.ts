@@ -14,6 +14,9 @@ interface BudgetState {
 function getBudgetStatePath(): string {
   const envPath = process.env.ONELY_BUDGET_STATE_FILE;
   if (envPath && envPath.trim().length > 0) {
+    if (envPath.startsWith("~/")) {
+      return path.join(os.homedir(), envPath.slice(2));
+    }
     return envPath;
   }
   return path.join(os.homedir(), ".1ly-mcp-budget.json");
@@ -100,4 +103,3 @@ export function checkAndRecordDailySpend(config: Config, priceUsd: number): void
     dailyLimit: config.budgets.daily,
   });
 }
-

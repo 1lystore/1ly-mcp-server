@@ -1,6 +1,6 @@
 {
   "name": "@1ly/mcp-server",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MCP server for 1ly.store - Discover and pay for APIs with AI agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -66,5 +66,8 @@
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
+  },
+  "overrides": {
+    "borsh": "^2.0.0"
   }
 }

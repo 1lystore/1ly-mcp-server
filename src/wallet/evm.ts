@@ -11,6 +11,11 @@ import type { PaymentRequired } from "@x402/core/types";
 // Mainnet only
 const CHAIN = base;
 
+function expandTilde(inputPath: string): string {
+  if (!inputPath.startsWith("~/")) return inputPath;
+  return resolve(os.homedir(), inputPath.slice(2));
+}
+
 /**
  * Validates wallet file path to prevent directory traversal attacks.
  * Only allows files in home directory or /tmp (for testing).
@@ -49,10 +54,11 @@ export async function loadEvmWallet(keyInput: string): Promise<PrivateKeyAccount
   if (keyInput.startsWith("0x")) {
     // Inline hex key - no path validation needed
     privateKey = keyInput as `0x${string}`;
-  } else if (fs.existsSync(keyInput)) {
+  } else if (fs.existsSync(expandTilde(keyInput))) {
+    const expandedPath = expandTilde(keyInput);
     // File path - validate before reading
-    validateWalletPath(keyInput);
-    const content = fs.readFileSync(keyInput, "utf-8").trim();
+    validateWalletPath(expandedPath);
+    const content = fs.readFileSync(expandedPath, "utf-8").trim();
     privateKey = (content.startsWith("0x") ? content : `0x${content}`) as `0x${string}`;
   } else {
     throw new Error(`EVM wallet key file not found: ${keyInput}`);
@@ -200,10 +206,11 @@ export async function loadEvmWalletWithKey(keyInput: string): Promise<{ account:
   if (keyInput.startsWith("0x")) {
     // Inline hex key - no path validation needed
     privateKey = keyInput as `0x${string}`;
-  } else if (fs.existsSync(keyInput)) {
+  } else if (fs.existsSync(expandTilde(keyInput))) {
+    const expandedPath = expandTilde(keyInput);
     // File path - validate before reading
-    validateWalletPath(keyInput);
-    const content = fs.readFileSync(keyInput, "utf-8").trim();
+    validateWalletPath(expandedPath);
+    const content = fs.readFileSync(expandedPath, "utf-8").trim();
     privateKey = (content.startsWith("0x") ? content : `0x${content}`) as `0x${string}`;
   } else {
     throw new Error(`EVM wallet key file not found: ${keyInput}`);

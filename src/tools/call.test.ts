@@ -15,17 +15,31 @@ vi.mock("../wallet/evm.js", async () => {
   return {
     loadEvmWallet: vi.fn(async () => ({ address: "0x0000000000000000000000000000000000000000" })),
     buildEvmPayment: vi.fn(async () => "EVM_PAYMENT_HEADER"),
+    buildEvmPaymentSignature: vi.fn(async () => "EVM_PAYMENT_SIGNATURE"),
     getEvmWalletAddress: vi.fn(async () => "0x0000000000000000000000000000000000000000"),
   };
 });
 
+vi.mock("../wallet/agentic.js", async () => {
+  return {
+    makeX402RequestViaAgenticWallet: vi.fn(async () => ({
+      status: 200,
+      statusText: "OK",
+      data: { data: { ok: true }, _1ly: { purchaseId: "p1" } },
+      headers: {},
+    })),
+  };
+});
+
 import { handleCall } from "./call.js";
+import { makeX402RequestViaAgenticWallet } from "../wallet/agentic.js";
 
 const config: Config = {
   apiBase: "https://1ly.store",
   wallet: { type: "solana", key: "/dev/null" },
   budgets: { perCall: 10, daily: 100 },
   network: "solana",
+  walletProvider: "raw",
 };
 
 describe("1ly_call", () => {
@@ -86,5 +100,105 @@ describe("1ly_call", () => {
     const secondCallArgs = fetchMock.mock.calls[1];
     const secondInit = secondCallArgs[1] as { headers?: Record<string, string> };
     expect(secondInit.headers?.["payment-signature"]).toBe("PAYMENT_SIGNATURE");
+  });
+
+  it("uses agentic wallet IPC when coinbase provider is set", async () => {
+    const coinbaseConfig: Config = {
+      apiBase: "https://1ly.store",
+      wallet: null,
+      budgets: { perCall: 10, daily: 100 },
+      network: "base",
+      walletProvider: "coinbase",
+    };
+
+    const paymentRequired = {
+      x402Version: 2,
+      resource: {
+        url: "https://1ly.store/api/link/joe/weather",
+        description: "Test API",
+        mimeType: "application/json",
+      },
+      accepts: [
+        {
+          scheme: "exact",
+          network: "eip155:8453",
+          amount: "10000",
+          payTo: "TREASURY",
+          asset: "USDC",
+        },
+      ],
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(paymentRequired), {
+          status: 402,
+          headers: {
+            "PAYMENT-REQUIRED": encodePaymentRequiredHeader(paymentRequired),
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, _1ly: { purchaseId: "p1" } }), {
+          status: 200,
+        })
+      );
+
+    globalThis.fetch = fetchMock;
+
+    const res = await handleCall({ endpoint: "joe/weather", method: "GET" }, coinbaseConfig);
+    const text = (res.content[0] as { text: string }).text;
+    const parsed = JSON.parse(text) as { ok: boolean };
+
+    expect(parsed.ok).toBe(true);
+    expect(makeX402RequestViaAgenticWallet).toHaveBeenCalledTimes(1);
+    // Agentic wallet path should not use local signing; only initial 402 fetch should occur.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws clear error when coinbase provider receives solana-only requirements", async () => {
+    const coinbaseConfig: Config = {
+      apiBase: "https://1ly.store",
+      wallet: null,
+      budgets: { perCall: 10, daily: 100 },
+      network: "base",
+      walletProvider: "coinbase",
+    };
+
+    const paymentRequired = {
+      x402Version: 2,
+      resource: {
+        url: "https://1ly.store/api/link/joe/weather",
+        description: "Test API",
+        mimeType: "application/json",
+      },
+      accepts: [
+        {
+          scheme: "exact",
+          network: "solana:devnet",
+          amount: "10000",
+          payTo: "TREASURY",
+          asset: "USDC",
+        },
+      ],
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(paymentRequired), {
+          status: 402,
+          headers: {
+            "PAYMENT-REQUIRED": encodePaymentRequiredHeader(paymentRequired),
+          },
+        })
+      );
+
+    globalThis.fetch = fetchMock;
+
+    await expect(handleCall({ endpoint: "joe/weather", method: "GET" }, coinbaseConfig)).rejects.toThrow(
+      /Agentic Wallet only supports Base/
+    );
   });
 });

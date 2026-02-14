@@ -41,6 +41,22 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.1.5] - 2026-02-14
+
+### ✨ Features
+- Coinbase Agentic Wallet support (Base-only) via CLI/IPC bridge
+- Optional wallet provider selection with `ONELY_WALLET_PROVIDER=coinbase`
+- Tilde (`~/`) expansion for wallet paths and budget state file
+
+### 📝 Documentation
+- Quick Start updated with Agentic Wallet setup
+- Clear wallet path restrictions added
+
+### ⚠️ BREAKING CHANGES
+**None** - This release is fully backward compatible
+
+---
+
 ## [0.1.2] - 2026-02-01
 
 ### Added

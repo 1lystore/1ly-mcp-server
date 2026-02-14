@@ -47,6 +47,7 @@ export const ConfigSchema = z.object({
     daily: z.number().positive().finite().default(50.0),
   }),
   network: z.enum(["solana", "base"]).default("solana"),
+  walletProvider: z.enum(["raw", "coinbase"]).default("raw"),
   apiKey: z.string().optional().nullable(),
 });
 
@@ -59,6 +60,8 @@ export function loadConfig(): Config {
   const walletEvm = process.env.ONELY_WALLET_EVM_KEY || null;
   const apiKeyEnv = process.env.ONELY_API_KEY || null;
   const apiBase = process.env.ONELY_API_BASE || "https://1ly.store";
+  const walletProvider =
+    process.env.ONELY_WALLET_PROVIDER === "coinbase" ? "coinbase" : "raw";
 
   // Parse and validate budget values to prevent NaN/negative bypasses
   const perCallRaw = process.env.ONELY_BUDGET_PER_CALL || "1.0";
@@ -101,6 +104,7 @@ export function loadConfig(): Config {
         daily,
       },
       network: process.env.ONELY_NETWORK || "solana",
+      walletProvider,
       apiKey: apiKeyEnv,
     });
   } catch (err) {

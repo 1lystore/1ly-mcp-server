@@ -7,6 +7,7 @@ const config: Config = {
   wallet: { type: "solana", key: "/dev/null" },
   budgets: { perCall: 1, daily: 50 },
   network: "solana",
+  walletProvider: "raw",
 };
 
 describe("1ly_search", () => {
@@ -41,4 +42,3 @@ describe("1ly_search", () => {
     expect(parsed.data.results[0].title).toBe("Weather");
   });
 });
-
