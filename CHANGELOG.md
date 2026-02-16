@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-02-16
+
+### ✨ Features
+- Bags.fm token launch + trade tools (launch, trade, trade quote, list tokens, claim fees)
+- Structured MCP error codes + actions for agent-friendly handling
+
+### 🛡️ Validation / Reliability
+- Bags-compatible input validation (name/symbol/description limits, base64 size cap, slippage range)
+- Retry policy tuned for Bags flows (no retry on state-creating create-token call)
+- “Uncertain” on-chain error classification for safe retries
+
+### 🧪 Tests
+- Added error code mapping tests
+- Added MCP error shape tests
+
+### 📝 Documentation
+- Added Bags validation details in README
+- Documented structured error codes in README
+
+### ⚠️ BREAKING CHANGES
+**None** - This release is backward compatible (error fields added, not removed).
+
+---
+
+## [0.1.5] - 2026-02-14
+
+### ✨ Features
+- Coinbase Agentic Wallet support (Base-only) via CLI/IPC bridge
+- Optional wallet provider selection with `ONELY_WALLET_PROVIDER=coinbase`
+- Tilde (`~/`) expansion for wallet paths and budget state file
+
+### 📝 Documentation
+- Quick Start updated with Agentic Wallet setup
+- Clear wallet path restrictions added
+
+### ⚠️ BREAKING CHANGES
+**None** - This release is fully backward compatible
+
+---
+
 ## [0.1.4] - 2026-02-14
 
 ### 🚨 SECURITY FIXES (CRITICAL UPDATE)
@@ -38,22 +78,6 @@ All notable changes to this project will be documented in this file.
 - Custom `ONELY_API_BASE` (if set) must be `https://1ly.store` or `http://localhost:PORT`
 - Wallet files must be in home directory (already the default)
 - Avatar uploads now limited to 5MB (previously unlimited)
-
----
-
-## [0.1.5] - 2026-02-14
-
-### ✨ Features
-- Coinbase Agentic Wallet support (Base-only) via CLI/IPC bridge
-- Optional wallet provider selection with `ONELY_WALLET_PROVIDER=coinbase`
-- Tilde (`~/`) expansion for wallet paths and budget state file
-
-### 📝 Documentation
-- Quick Start updated with Agentic Wallet setup
-- Clear wallet path restrictions added
-
-### ⚠️ BREAKING CHANGES
-**None** - This release is fully backward compatible
 
 ---
 
