@@ -8,6 +8,7 @@ const config: Config = {
   budgets: { perCall: 1, daily: 50 },
   network: "solana",
   walletProvider: "raw",
+  solanaRpcUrl: "https://api.mainnet-beta.solana.com",
 };
 
 describe("1ly_search", () => {

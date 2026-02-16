@@ -40,6 +40,7 @@ const config: Config = {
   budgets: { perCall: 10, daily: 100 },
   network: "solana",
   walletProvider: "raw",
+  solanaRpcUrl: "https://api.mainnet-beta.solana.com",
 };
 
 describe("1ly_call", () => {
@@ -109,6 +110,7 @@ describe("1ly_call", () => {
       budgets: { perCall: 10, daily: 100 },
       network: "base",
       walletProvider: "coinbase",
+      solanaRpcUrl: "https://api.mainnet-beta.solana.com",
     };
 
     const paymentRequired = {
@@ -164,6 +166,7 @@ describe("1ly_call", () => {
       budgets: { perCall: 10, daily: 100 },
       network: "base",
       walletProvider: "coinbase",
+      solanaRpcUrl: "https://api.mainnet-beta.solana.com",
     };
 
     const paymentRequired = {

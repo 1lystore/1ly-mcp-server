@@ -8,6 +8,7 @@ This MCP server gives AI agents the ability to:
 
 - **Buy** — Search, discover, and pay for APIs/resources with automatic crypto payments (x402 protocol)
 - **Sell** — Create a store, list paid API endpoints or resources, and accept payments
+- **Launch Tokens** — Create and trade tokens on Bags.fm, and claim fee shares
 
 **Supported Networks:** Solana (mainnet), Base (mainnet)  
 **Payment Currency:** USDC
@@ -23,12 +24,15 @@ This MCP server enables AI agents (Claude, GPT, Cursor, and more) to:
 - Get details about pricing, reviews, and usage
 - Call paid APIs with automatic crypto payments (x402 protocol) securely
 - Leave reviews after purchases (optional but recommended)
+— Launch tokens on Bags.fm, trade solana tokens, and claim fees
+
 
 ---
 
 ## Quick Start
 
 **Wallet path rule:** wallet files must be located in your home directory (recommended) or `/tmp`. Paths outside those locations are rejected for security. `~/` is supported and expands to your home directory.
+**Important:** Claude/Cursor config JSON does **not** expand `~`. Use an absolute path in JSON configs.
 
 ### 1. Install and Run
 
@@ -69,7 +73,6 @@ npx awal show
 ```bash
 ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server --self-test
 ```
-
 ---
 
 ## Configuration
@@ -85,6 +88,7 @@ ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server --self-
 | `ONELY_BUDGET_DAILY` | No | Daily USD spending limit (default: `50.00`) |
 | `ONELY_BUDGET_STATE_FILE` | No | Path to local budget state file (default: `~/.1ly-mcp-budget.json`) |
 | `ONELY_NETWORK` | No | Preferred network: `solana` or `base` (default: `solana`) |
+| `ONELY_SOLANA_RPC_URL` | No | Solana RPC URL (default: `https://api.mainnet-beta.solana.com`) |
 | `ONELY_API_BASE` | No | API base URL (default: `https://1ly.store`) |
 | `ONELY_WALLET_PROVIDER` | No | `raw` (default) or `coinbase` (Agentic Wallet, Base-only) |
 
@@ -131,6 +135,26 @@ Add to `claude_desktop_config.json`:
 ```
 </details>
 
+### Cursor One-Click Install
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=1ly&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyJAMWx5L21jcC1zZXJ2ZXIiXSwiZW52Ijp7Ik9ORUxZX1dBTExFVF9TT0xBTkFfS0VZIjoiL2Fic29sdXRlL3BhdGgvdG8vc29sYW5hLmpzb24iLCJPTkVMWV9CVURHRVRfUEVSX0NBTEwiOiIxLjAwIiwiT05FTFlfQlVER0VUX0RBSUxZIjoiNTAuMDAifX0%3D)
+
+Cursor uses `.cursor/mcp.json`. If you prefer manual setup, use:
+```json
+{
+  "mcpServers": {
+    "1ly": {
+      "command": "npx",
+      "args": ["@1ly/mcp-server"],
+      "env": {
+        "ONELY_WALLET_SOLANA_KEY": "/absolute/path/to/solana.json",
+        "ONELY_BUDGET_PER_CALL": "1.00",
+        "ONELY_BUDGET_DAILY": "50.00"
+      }
+    }
+  }
+}
+```
 <details>
 <summary>Both Solana + Base wallets</summary>
 
@@ -331,6 +355,8 @@ These tools require an **API key**. Run `1ly_create_store` first to get one.
 #### `1ly_create_store`
 
 Create a new store and get an API key. **Run this once.** The API key is automatically saved locally.
+
+> **Note:** Creating a store requires a raw wallet key (Solana or EVM). Agentic Wallet does not support store creation yet.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -759,6 +785,81 @@ List recent withdrawals.
 
 ---
 
+### Token Tools (Bags.fm)
+
+These tools require a **Solana wallet** (`ONELY_WALLET_SOLANA_KEY`)
+
+#### `1ly_launch_token`
+
+Launch a token on Bags.fm (v2 flow).
+
+Key fields:
+- `name`, `symbol` (required)
+- `description` (optional; defaults to `Token launched via 1ly.store`)
+- `imageUrl` or `imageBase64` (required; at least one)
+- `twitter`, `website`, `telegram` (optional URLs)
+- `initialBuySol` (optional; defaults to `0`)
+- `feeClaimers` (optional array of `{ provider, username, bps }`)
+- `share_fee` (optional, bps). Adds a 1ly marketplace fee claimer on the backend. If set, the creator share is auto‑reduced.
+
+Validation (Bags.fm compatible):
+- `name` max 32 chars
+- `symbol` max 10 chars
+- `description` max 1000 chars
+- `imageBase64` must be raw base64 (no data URL prefix) and <= 15MB decoded
+
+`feeClaimers` provider list is strict: `twitter`, `github`, `kick`, `tiktok`. Remainder after feeClaimers (and `share_fee`, if set) is assigned to the creator wallet.
+
+`bps` = basis points: **10000 = 100%**, **1000 = 10%**, **100 = 1%**.  
+Example: 90% to a GitHub claimer + 1% `share_fee`:
+```json
+{
+  "feeClaimers": [{ "provider": "github", "username": "abc", "bps": 9000 }],
+  "share_fee": 100
+}
+```
+
+#### `1ly_list_tokens`
+
+List tokens launched by a wallet (public listing by wallet address, default limit 10).
+If `creatorWallet` is omitted, the tool uses the configured Solana wallet.
+
+Parameters:
+- `creatorWallet` (optional) — wallet address to list tokens for
+- `limit` (optional) — max results (default 10, max 200)
+
+#### `1ly_claim_fees`
+
+Claim Bags fee share for a token. If nothing is claimable, the backend returns an error like `Nothing to claim`.
+
+Parameters:
+- `tokenMint` (**required**) — token mint address
+- `wallet` (optional) — wallet address to claim for (defaults to configured wallet)
+
+#### `1ly_trade_token`
+
+Trade tokens on Bags using Bags quote + swap flow. 
+
+Parameters:
+- `inputMint` (**required**) — input token mint (e.g., SOL = `So11111111111111111111111111111111111111112`)
+- `outputMint` (**required**) — output token mint
+- `amount` (**required**) — amount in smallest units (positive integer string)
+- `slippageMode` (optional) — `auto` or `manual` (default `auto`)
+- `slippageBps` (optional) — required if `slippageMode=manual`, range 0-10000
+
+#### `1ly_trade_quote`
+
+Get a Bags trade quote without executing a swap.
+
+Parameters:
+- `inputMint` (**required**) — input token mint
+- `outputMint` (**required**) — output token mint
+- `amount` (**required**) — amount in smallest units (positive integer string)
+- `slippageMode` (optional) — `auto` or `manual` (default `auto`)
+- `slippageBps` (optional) — required if `slippageMode=manual`, range 0-10000
+
+---
+
 ## Common Workflows
 
 ### Workflow 1: Pay for an API
@@ -799,6 +900,14 @@ List recent withdrawals.
 ```
 1. 1ly_withdraw({ "amount": "1.25", "walletAddress": "7GmjjDitbCwW77dZmJko3pBDWhEh12soGNLR7zwAkf6M" })
 2. 1ly_list_withdrawals({ "limit": 10 })
+```
+
+### Workflow 6: Launch + Trade + Claim (Bags)
+
+```
+1. 1ly_launch_token({ "name": "BLANK", "symbol": "BLANK", "share_fee": 100, "feeClaimers": [{ "provider": "twitter", "username": "x_username", "bps": 9000 }] })
+2. 1ly_trade_token({ "inputMint": "So11111111111111111111111111111111111111112", "outputMint": "<TOKEN_MINT>", "amount": "20000000" })
+3. 1ly_claim_fees({ "tokenMint": "<TOKEN_MINT>" })
 ```
 
 ---
@@ -843,21 +952,26 @@ All responses follow this structure:
 ```json
 {
   "ok": false,
-  "error": { "message": "Error description" }
+  "error": {
+    "message": "Error description",
+    "code": "MACHINE_READABLE_CODE",
+    "action": "recommended_next_step"
+  }
 }
 ```
 
 ### Common Errors
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `Missing wallet config` | No wallet env var set | Set `ONELY_WALLET_SOLANA_KEY`, `ONELY_WALLET_EVM_KEY`, or `ONELY_WALLET_PROVIDER=coinbase` |
-| `Agentic Wallet not running` | Wallet app not running or not authenticated | Open the Agentic Wallet app and sign in (`npx awal show`) |
-| `Agentic Wallet Base-only` | API requires Solana payment | Use raw Solana wallet or a Base-compatible endpoint |
-| `Missing ONELY_API_KEY` | Seller tool called without API key | Run `1ly_create_store` first |
-| `Price exceeds per-call budget` | API costs more than limit | Increase `ONELY_BUDGET_PER_CALL` |
-| `Daily budget exceeded` | Spent more than daily limit | Wait until tomorrow or increase `ONELY_BUDGET_DAILY` |
-| `Insufficient funds` | Wallet balance too low | Add USDC to your wallet |
+| Error | Code | Cause | Solution |
+|-------|------|-------|----------|
+| `Missing wallet config` | `MISSING_WALLET_CONFIG` | No wallet env var set | Set `ONELY_WALLET_SOLANA_KEY`, `ONELY_WALLET_EVM_KEY`, or `ONELY_WALLET_PROVIDER=coinbase` |
+| `Agentic Wallet not running` | `AGENTIC_WALLET_NOT_RUNNING` | Wallet app not running or not authenticated | Open the Agentic Wallet app and sign in (`npx awal show`) |
+| `Agentic Wallet Base-only` | `AGENTIC_WALLET_BASE_ONLY` | API requires Solana payment | Use raw Solana wallet or a Base-compatible endpoint |
+| `Agentic Wallet store creation` | `AGENTIC_WALLET_STORE_CREATION` | `1ly_create_store` requires raw wallet signature | Use raw Solana/EVM wallet keys for store creation |
+| `Missing ONELY_API_KEY` | `MISSING_API_KEY` | Seller tool called without API key | Run `1ly_create_store` first |
+| `Price exceeds per-call budget` | `PRICE_EXCEEDS_PER_CALL_BUDGET` | API costs more than limit | Increase `ONELY_BUDGET_PER_CALL` |
+| `Daily budget exceeded` | `DAILY_BUDGET_EXCEEDED` | Spent more than daily limit | Wait until tomorrow or increase `ONELY_BUDGET_DAILY` |
+| `Insufficient funds` | `INSUFFICIENT_FUNDS` | Wallet balance too low | Add USDC to your wallet |
 
 ---
 

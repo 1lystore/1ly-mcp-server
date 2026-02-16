@@ -32,7 +32,9 @@ export type SecurityEventType =
   // Business/Operational Events
   | "api_call_paid"
   | "store_created"
-  | "withdrawal_requested";
+  | "withdrawal_requested"
+  | "token_launched"
+  | "token_traded";
 
 /**
  * Structured security event log entry

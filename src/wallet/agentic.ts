@@ -48,10 +48,11 @@ async function waitForResponseFile(filePath: string, timeoutMs: number): Promise
   });
 }
 
-export async function makeX402RequestViaAgenticWallet(
-  request: AgenticWalletRequest,
-  timeoutMs = 30_000
-): Promise<AgenticWalletResponse> {
+async function sendAgenticIpcRequest<T>(
+  channel: string,
+  data: unknown,
+  timeoutMs: number
+): Promise<T> {
   ensureIpcDirs();
 
   const originalTitle = process.title;
@@ -64,8 +65,8 @@ export async function makeX402RequestViaAgenticWallet(
   try {
     const payload = {
       id: requestId,
-      channel: "make-x402-request",
-      data: request,
+      channel,
+      data,
       timestamp: Date.now(),
       pid: process.pid,
       processTitle: process.title,
@@ -77,7 +78,7 @@ export async function makeX402RequestViaAgenticWallet(
 
     const responseData = fs.readFileSync(responseFile, "utf-8");
     const response = JSON.parse(responseData) as {
-      result?: AgenticWalletResponse;
+      result?: T;
       error?: string | object;
     };
 
@@ -101,4 +102,37 @@ export async function makeX402RequestViaAgenticWallet(
   } finally {
     process.title = originalTitle;
   }
+}
+
+export async function makeX402RequestViaAgenticWallet(
+  request: AgenticWalletRequest,
+  timeoutMs = 30_000
+): Promise<AgenticWalletResponse> {
+  return sendAgenticIpcRequest<AgenticWalletResponse>(
+    "make-x402-request",
+    request,
+    timeoutMs
+  );
+}
+
+export async function getAgenticWalletAddress(
+  timeoutMs = 30_000
+): Promise<string> {
+  const result = await sendAgenticIpcRequest<unknown>(
+    "get-wallet-address",
+    undefined,
+    timeoutMs
+  );
+
+  if (typeof result === "string") return result;
+  if (
+    result &&
+    typeof result === "object" &&
+    "address" in result &&
+    typeof (result as { address?: unknown }).address === "string"
+  ) {
+    return (result as { address: string }).address;
+  }
+
+  throw new Error("Agentic Wallet returned an invalid address");
 }

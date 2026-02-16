@@ -25,9 +25,15 @@ import { listWithdrawalsTool, handleListWithdrawals } from "./tools/list-withdra
 import { updateProfileTool, handleUpdateProfile } from "./tools/update-profile.js";
 import { updateSocialsTool, handleUpdateSocials } from "./tools/update-socials.js";
 import { updateAvatarTool, handleUpdateAvatar } from "./tools/update-avatar.js";
+import { launchTokenTool, handleLaunchToken } from "./tools/launch-token.js";
+import { claimFeesTool, handleClaimFees } from "./tools/claim-fees.js";
+import { tradeTokenTool, handleTradeToken } from "./tools/trade-token.js";
+import { tradeQuoteTool, handleTradeQuote } from "./tools/trade-quote.js";
+import { listTokensTool, handleListTokens } from "./tools/list-tokens.js";
 import { loadConfigWithStoredKey } from "./config.js";
 import { runSelfTest } from "./selftest.js";
-import { mcpError } from "./mcp.js";
+import { mapErrorToCode } from "./error-codes.js";
+import { McpToolError, mcpError } from "./mcp.js";
 
 const argv = process.argv.slice(2);
 const isSelfTest = argv.includes("--self-test");
@@ -70,6 +76,11 @@ async function main() {
       updateProfileTool,
       updateSocialsTool,
       updateAvatarTool,
+      launchTokenTool,
+      listTokensTool,
+      claimFeesTool,
+      tradeTokenTool,
+      tradeQuoteTool,
     ],
   }));
 
@@ -118,6 +129,16 @@ async function main() {
           return await handleUpdateSocials(args, config);
         case "1ly_update_avatar":
           return await handleUpdateAvatar(args, config);
+        case "1ly_launch_token":
+          return await handleLaunchToken(args, config);
+        case "1ly_claim_fees":
+          return await handleClaimFees(args, config);
+        case "1ly_trade_token":
+          return await handleTradeToken(args, config);
+        case "1ly_trade_quote":
+          return await handleTradeQuote(args, config);
+        case "1ly_list_tokens":
+          return await handleListTokens(args, config);
 
         default:
           return {
@@ -126,8 +147,17 @@ async function main() {
           };
       }
     } catch (error) {
+      if (error instanceof McpToolError) {
+        const mapping = error.code ? { code: error.code, action: error.action } : mapErrorToCode(error.message);
+        return mcpError(error.message, {
+          code: mapping.code,
+          action: mapping.action,
+          meta: error.meta,
+        });
+      }
       const message = error instanceof Error ? error.message : "Unknown error";
-      return mcpError(message);
+      const mapping = mapErrorToCode(message);
+      return mcpError(message, { code: mapping.code, action: mapping.action });
     }
   });
 

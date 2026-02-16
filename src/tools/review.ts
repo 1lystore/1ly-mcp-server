@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Config } from "../config.js";
 import { loadSolanaWallet } from "../wallet/solana.js";
 import { loadEvmWallet } from "../wallet/evm.js";
+import { getAgenticWalletAddress } from "../wallet/agentic.js";
 import { fetchWithTimeout, assertOk, HttpError } from "../http.js";
 import { mcpOk } from "../mcp.js";
 
@@ -44,7 +45,7 @@ export async function handleReview(args: unknown, config: Config) {
   const input = InputSchema.parse(args);
   const solanaKey = config.walletSolana || (config.wallet?.type === "solana" ? config.wallet.key : null);
   const evmKey = config.walletEvm || (config.wallet?.type === "evm" ? config.wallet.key : null);
-  if (!solanaKey && !evmKey) {
+  if (!solanaKey && !evmKey && config.walletProvider !== "coinbase") {
     throw new Error(
       "Missing wallet config: set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY (or legacy ONELY_WALLET_TYPE/KEY)"
     );
@@ -54,10 +55,12 @@ export async function handleReview(args: unknown, config: Config) {
     ? (await loadSolanaWallet(solanaKey)).publicKey.toBase58()
     : null;
   const evmAddress = evmKey ? (await loadEvmWallet(evmKey)).address : null;
+  const agenticAddress =
+    config.walletProvider === "coinbase" ? await getAgenticWalletAddress() : null;
 
   const ordered = config.network === "solana"
-    ? [solanaAddress, evmAddress]
-    : [evmAddress, solanaAddress];
+    ? [solanaAddress, evmAddress, agenticAddress]
+    : [evmAddress, solanaAddress, agenticAddress];
 
   let data: { reviewId: string } | null = null;
   let lastError: unknown = null;

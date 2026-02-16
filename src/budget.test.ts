@@ -12,6 +12,7 @@ function mkConfig(daily: number): Config {
     budgets: { perCall: 10, daily },
     network: "solana",
     walletProvider: "raw",
+    solanaRpcUrl: "https://api.mainnet-beta.solana.com",
   };
 }
 

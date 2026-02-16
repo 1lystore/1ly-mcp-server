@@ -43,6 +43,11 @@ export async function handleCreateStore(args: unknown, config: Config) {
   const input = InputSchema.parse(args);
   const solanaKey = config.walletSolana || (config.wallet?.type === "solana" ? config.wallet.key : null);
   const evmKey = config.walletEvm || (config.wallet?.type === "evm" ? config.wallet.key : null);
+  if (!solanaKey && !evmKey && config.walletProvider === "coinbase") {
+    throw new Error(
+      "Agentic Wallet does not support store creation yet. Set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY."
+    );
+  }
   if (!solanaKey && !evmKey) {
     throw new Error(
       "Missing wallet config: set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY (or legacy ONELY_WALLET_TYPE/KEY)"
