@@ -24,7 +24,7 @@ This MCP server enables AI agents (Claude, GPT, Cursor, and more) to:
 - Get details about pricing, reviews, and usage
 - Call paid APIs with automatic crypto payments (x402 protocol) securely
 - Leave reviews after purchases (optional but recommended)
-— Launch tokens on Bags.fm, trade solana tokens, and claim fees
+- Launch tokens on Bags.fm, trade solana tokens, and claim fees
 
 
 ---
