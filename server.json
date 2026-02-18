@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.1lystore/mcp-server",
-  "description": "MCP server for 1ly.store — discover, buy and sell APIs, and launch/trade tokens on Bags.fm with USDC and $1LY payments on Solana and Base.",
+  "description": "MCP server for 1ly.store — buy/sell APIs and launch tokens on Bags.fm with USDC & $1LY.",
   "repository": {
     "url": "https://github.com/1lystore/1ly-mcp-server",
     "source": "github"
