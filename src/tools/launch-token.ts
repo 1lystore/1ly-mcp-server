@@ -159,7 +159,7 @@ export async function handleLaunchToken(args: unknown, config: Config) {
     }),
   });
   await assertOk(res, "Launch token failed");
-  const data = (await res.json()) as {
+  type LaunchPayload = {
     tokenMint: string;
     metadataUrl?: string;
     bagsUrl?: string;
@@ -168,6 +168,8 @@ export async function handleLaunchToken(args: unknown, config: Config) {
     configTransactionsBase64?: string[];
     configBundlesBase64?: string[][];
   };
+  const raw = (await res.json()) as LaunchPayload & { response?: LaunchPayload };
+  const data: LaunchPayload = raw.response ?? raw;
 
   const connection = new Connection(config.solanaRpcUrl, "confirmed");
   for (const txBase64 of data.configTransactionsBase64 || []) {
@@ -224,9 +226,9 @@ export async function handleLaunchToken(args: unknown, config: Config) {
         }),
       });
       await assertOk(launchRes, "Launch transaction failed");
-      const launchData = (await launchRes.json()) as {
-        launchTransactionBase64?: string;
-      };
+      type LaunchTxPayload = { launchTransactionBase64?: string };
+      const launchRaw = (await launchRes.json()) as LaunchTxPayload & { response?: LaunchTxPayload };
+      const launchData: LaunchTxPayload = launchRaw.response ?? launchRaw;
       if (launchData.launchTransactionBase64) {
         launchTxBase64 = launchData.launchTransactionBase64;
         break;

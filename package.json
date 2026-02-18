@@ -1,6 +1,7 @@
 {
   "name": "@1ly/mcp-server",
-  "version": "0.1.6",
+  "version": "0.1.7",
+  "mcpName": "io.github.1lystore/mcp-server",
   "description": "MCP server for 1ly.store - Discover and pay for APIs with AI agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

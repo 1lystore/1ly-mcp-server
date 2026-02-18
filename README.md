@@ -10,8 +10,8 @@ This MCP server gives AI agents the ability to:
 - **Sell** — Create a store, list paid API endpoints or resources, and accept payments
 - **Launch Tokens** — Create and trade tokens on Bags.fm, and claim fee shares
 
-**Supported Networks:** Solana (mainnet), Base (mainnet)  
-**Payment Currency:** USDC
+**Supported Networks:** Solana (mainnet), Base (mainnet)
+**Payment Currency:** USDC and $1LY (Solana only)
 
 ## What is this?
 This MCP server enables AI agents (Claude, GPT, Cursor, and more) to:
@@ -31,8 +31,8 @@ This MCP server enables AI agents (Claude, GPT, Cursor, and more) to:
 
 ## Quick Start
 
-**Wallet path rule:** wallet files must be located in your home directory (recommended) or `/tmp`. Paths outside those locations are rejected for security. `~/` is supported and expands to your home directory.
-**Important:** Claude/Cursor config JSON does **not** expand `~`. Use an absolute path in JSON configs.
+**Wallet path rule:** wallet files must be located in your home directory (recommended) or `/tmp`. Paths outside those locations are rejected for security. `~/` is supported and expands to your home directory when running directly from the terminal.
+**Important:** Claude Desktop and Cursor config JSON do **not** expand `~`. Always use absolute paths in JSON config files (e.g. `/Users/yourname/.1ly/wallets/solana.json`).
 
 ### 1. Install and Run
 
@@ -61,7 +61,7 @@ ONELY_WALLET_PROVIDER="coinbase" npx @1ly/mcp-server
 > Make sure the Coinbase Agentic Wallet app is running and authenticated.
 
 If you haven't installed Agentic Wallet yet:
-- Follow Coinbase Agentic Wallet docs: `https://docs.cdp.coinbase.com/agentic-wallet/welcome`
+- Follow Coinbase Agentic Wallet docs: [docs.cdp.coinbase.com/agentic-wallet/welcome](https://docs.cdp.coinbase.com/agentic-wallet/welcome)
 - Quick install:
 ```bash
 npx skills add coinbase/agentic-wallet-skills
@@ -91,6 +91,7 @@ ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server --self-
 | `ONELY_SOLANA_RPC_URL` | No | Solana RPC URL (default: `https://api.mainnet-beta.solana.com`) |
 | `ONELY_API_BASE` | No | API base URL (default: `https://1ly.store`) |
 | `ONELY_WALLET_PROVIDER` | No | `raw` (default) or `coinbase` (Agentic Wallet, Base-only) |
+| `ONELY_SOLANA_DRY_RUN` | No | Set to `1` to simulate Solana transactions without broadcasting. No real payments. For testing only. |
 
 *A wallet is required only for **paid** calls. For free search/details you can run without a wallet.*
 Use **one** of: `ONELY_WALLET_SOLANA_KEY`, `ONELY_WALLET_EVM_KEY`, or `ONELY_WALLET_PROVIDER=coinbase`.
@@ -106,7 +107,7 @@ Add to `claude_desktop_config.json`:
       "command": "npx",
       "args": ["@1ly/mcp-server"],
       "env": {
-        "ONELY_WALLET_SOLANA_KEY": "~/.1ly/wallets/solana.json",
+        "ONELY_WALLET_SOLANA_KEY": "/Users/yourname/.1ly/wallets/solana.json",
         "ONELY_BUDGET_PER_CALL": "1.00",
         "ONELY_BUDGET_DAILY": "50.00"
       }
@@ -114,6 +115,8 @@ Add to `claude_desktop_config.json`:
   }
 }
 ```
+
+> **Note:** Replace `/Users/yourname` with your actual home directory. On Linux use `/home/yourname`. `~` does not work in Claude Desktop config.
 
 <details>
 <summary>Base/EVM wallet configuration</summary>
@@ -125,7 +128,7 @@ Add to `claude_desktop_config.json`:
       "command": "npx",
       "args": ["@1ly/mcp-server"],
       "env": {
-        "ONELY_WALLET_EVM_KEY": "~/.1ly/wallets/evm.key",
+        "ONELY_WALLET_EVM_KEY": "/Users/yourname/.1ly/wallets/evm.key",
         "ONELY_BUDGET_PER_CALL": "1.00",
         "ONELY_BUDGET_DAILY": "50.00"
       }
@@ -350,7 +353,17 @@ Leave a review after a successful purchase.
 
 ### Seller Tools (Accept Payments)
 
-These tools require an **API key**. Run `1ly_create_store` first to get one.
+These tools require an **API key**. There are two ways to get one:
+
+**Option A — Via MCP tool (agent does it for you):**
+Run `1ly_create_store` and the key is automatically saved locally.
+
+**Option B — Via UI (no wallet needed):**
+1. Go to [1ly.store](https://1ly.store) and sign in
+2. Open Settings → enable **Developer Mode**
+3. Create an API key from the dashboard
+4. Set it as `ONELY_API_KEY` in your MCP config
+
 
 #### `1ly_create_store`
 

@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2026-02-19
+
+### 📋 Registry
+- Published to official MCP Registry (`registry.modelcontextprotocol.io`) as `io.github.1lystore/mcp-server`
+- Added `server.json` with full environment variable metadata for all 11 config options
+- Added `mcpName` to `package.json` for registry namespace verification
+
+### 📝 Documentation
+- Added `$1LY` as supported payment currency alongside USDC (Solana only)
+- Fixed Claude Desktop config examples to use absolute paths — `~` is not expanded in JSON configs
+- Added `ONELY_SOLANA_DRY_RUN` to environment variables table
+- Added UI path for getting API key: Settings → Developer Mode on 1ly.store (no wallet needed)
+
+### ⚠️ BREAKING CHANGES
+**None** — fully backward compatible.
+
+---
+
 ## [0.1.6] - 2026-02-16
 
 ### ✨ Features
