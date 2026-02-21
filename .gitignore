@@ -17,3 +17,6 @@ wallets/
 **/*keypair*.json
 **/*.key
 **/*.pem
+
+# MCP registry auth tokens
+.mcpregistry_*
