@@ -23,8 +23,10 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
   const port = options.port ?? envPort ?? DEFAULT_PORT;
   const host = options.host ?? process.env.MCP_HTTP_HOST ?? DEFAULT_HOST;
 
-  const server = createMcpServer();
-  const transports = new Map<string, StreamableHTTPServerTransport>();
+  const transports = new Map<
+    string,
+    { transport: StreamableHTTPServerTransport; server: ReturnType<typeof createMcpServer> }
+  >();
 
   const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
@@ -43,17 +45,21 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
       const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
       let transport: StreamableHTTPServerTransport;
+      let mcpServer: ReturnType<typeof createMcpServer>;
 
       if (sessionId && transports.has(sessionId)) {
-        transport = transports.get(sessionId)!;
+        const entry = transports.get(sessionId)!;
+        transport = entry.transport;
+        mcpServer = entry.server;
       } else {
         // Create new transport with session management
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: options.sessionIdGenerator ?? (() => crypto.randomUUID()),
         });
 
-        // Connect to server
-        await server.connect(transport);
+        // Create a fresh MCP server per transport
+        mcpServer = createMcpServer();
+        await mcpServer.connect(transport);
 
         // Store transport by session ID once available
         transport.onclose = () => {
@@ -64,7 +70,7 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
 
         // Wait for session ID to be generated on first request
         if (transport.sessionId) {
-          transports.set(transport.sessionId, transport);
+          transports.set(transport.sessionId, { transport, server: mcpServer });
         }
       }
 
@@ -73,7 +79,7 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
 
         // Store transport if session ID now available
         if (transport.sessionId && !transports.has(transport.sessionId)) {
-          transports.set(transport.sessionId, transport);
+          transports.set(transport.sessionId, { transport, server: mcpServer! });
         }
       } catch (error) {
         console.error("Error handling MCP request:", error);
