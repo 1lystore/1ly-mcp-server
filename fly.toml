@@ -2,7 +2,7 @@ app = "1ly-mcp-server"
 primary_region = "sjc"
 
 [build]
-  builder = "heroku/buildpacks:20"
+  builder = "paketobuildpacks/builder:base"
 
 [env]
   MCP_TRANSPORT = "http"
