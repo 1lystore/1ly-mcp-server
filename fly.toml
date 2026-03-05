@@ -1,23 +1,23 @@
-# fly.toml app configuration file generated for 1ly-mcp-server on 2026-03-05T03:56:07Z
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
-app = '1ly-mcp-server'
-primary_region = 'sjc'
+app = "1ly-mcp-server"
 
 [build]
+  builder = "heroku/buildpacks:20"
+
+[env]
+  MCP_TRANSPORT = "http"
+  MCP_HTTP_HOST = "0.0.0.0"
+  MCP_HTTP_PORT = "8080"
+  NODE_ENV = "production"
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = false
   auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
+  min_machines_running = 1
 
-[[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 256
+[[http_service.checks]]
+  interval = "10s"
+  timeout = "2s"
+  method = "GET"
+  path = "/health"
