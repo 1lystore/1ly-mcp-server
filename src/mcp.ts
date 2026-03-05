@@ -76,3 +76,24 @@ export function mcpError(
     true
   );
 }
+
+/**
+ * VAULT_OFFLINE error contract per PRD
+ *
+ * Used when the DCP vault is not connected (relay unreachable or vault offline).
+ * Indicates that free tools (1ly_search, 1ly_get_details, 1ly_trade_quote) still work.
+ */
+export function mcpVaultOffline(message?: string) {
+  return mcpJson(
+    false,
+    {
+      error: {
+        code: "VAULT_OFFLINE" as McpErrorCode,
+        message: message || "Your DCP vault is not connected. Open your DCP app to reconnect.",
+        action: "open_dcp_app" as McpErrorAction,
+        free_tools_available: true,
+      },
+    },
+    true
+  );
+}

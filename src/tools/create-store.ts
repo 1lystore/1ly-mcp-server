@@ -1,11 +1,9 @@
 import { z } from "zod";
 import type { Config } from "../config.js";
 import { fetchWithTimeout, assertOk } from "../http.js";
-import { mcpOk } from "../mcp.js";
-import { loadEvmWallet } from "../wallet/evm.js";
-import { loadSolanaWallet } from "../wallet/solana.js";
-import { createKeyPairSignerFromBytes, createSignableMessage } from "@solana/signers";
-import { saveApiKey, getDefaultKeyPath } from "../keys.js";
+import { mcpOk, McpToolError } from "../mcp.js";
+import { getDefaultKeyPath } from "../keys.js";
+import { getProvider } from "../provider/index.js";
 
 export const createStoreTool = {
   name: "1ly_create_store",
@@ -27,45 +25,36 @@ const InputSchema = z.object({
   avatarUrl: z.string().url().optional(),
 });
 
-async function signSolanaMessage(message: string, keyPath: string): Promise<string> {
-  const wallet = await loadSolanaWallet(keyPath);
-  const signer = await createKeyPairSignerFromBytes(wallet.secretKey);
-  const signable = createSignableMessage(message);
-  const [signatureDictionary] = await signer.signMessages([signable]);
-  const signatureBytes = signatureDictionary[signer.address];
-  if (!signatureBytes) {
-    throw new Error("Failed to sign message with Solana wallet");
-  }
-  return Buffer.from(signatureBytes).toString("base64");
-}
-
 export async function handleCreateStore(args: unknown, config: Config) {
   const input = InputSchema.parse(args);
-  const solanaKey = config.walletSolana || (config.wallet?.type === "solana" ? config.wallet.key : null);
-  const evmKey = config.walletEvm || (config.wallet?.type === "evm" ? config.wallet.key : null);
-  if (!solanaKey && !evmKey && config.walletProvider === "coinbase") {
-    throw new Error(
-      "Agentic Wallet does not support store creation yet. Set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY."
-    );
-  }
-  if (!solanaKey && !evmKey) {
-    throw new Error(
-      "Missing wallet config: set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY (or legacy ONELY_WALLET_TYPE/KEY)"
+  const provider = await getProvider();
+
+  // Coinbase Agentic Wallet doesn't support message signing for store creation
+  if (provider.type === "coinbase") {
+    throw new McpToolError(
+      "Agentic Wallet does not support store creation yet. Set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY.",
+      { code: "AGENTIC_WALLET_BASE_ONLY", action: "use_raw_wallet_keys" }
     );
   }
 
-  const chain =
-    config.wallet?.type === "evm" || (!solanaKey && evmKey)
-      ? "base"
-      : "solana";
+  // Determine chain based on what's available
+  let chain: "solana" | "base";
   let address: string;
-  const evmAccount = chain === "base" ? await loadEvmWallet(evmKey!) : null;
 
-  if (chain === "solana") {
-    const wallet = await loadSolanaWallet(solanaKey!);
-    address = wallet.publicKey.toBase58();
-  } else {
-    address = evmAccount!.address;
+  // Try Solana first, then EVM
+  try {
+    address = await provider.getPublicAddress("solana");
+    chain = "solana";
+  } catch {
+    try {
+      address = await provider.getPublicAddress("evm");
+      chain = "base";
+    } catch {
+      throw new McpToolError(
+        "No wallet configured. Set ONELY_WALLET_SOLANA_KEY or ONELY_WALLET_EVM_KEY.",
+        { code: "MISSING_WALLET_CONFIG", action: "set_wallet_env" }
+      );
+    }
   }
 
   const nonceRes = await fetchWithTimeout(`${config.apiBase}/api/agent/auth/nonce`, {
@@ -80,10 +69,8 @@ export async function handleCreateStore(args: unknown, config: Config) {
     throw new Error("Missing message from nonce response");
   }
 
-  const signature =
-    chain === "solana"
-      ? await signSolanaMessage(message, solanaKey!)
-      : await evmAccount!.signMessage({ message });
+  // Sign the authentication message using the provider
+  const signature = await provider.signMessage(message, chain === "solana" ? "solana" : "evm");
 
   const signupRes = await fetchWithTimeout(`${config.apiBase}/api/agent/signup`, {
     method: "POST",
@@ -106,11 +93,11 @@ export async function handleCreateStore(args: unknown, config: Config) {
   };
   const apiKey = data?.data?.apiKey;
   if (apiKey) {
-    const store = data?.data?.store;
-    const savedPath = await saveApiKey(apiKey, store);
+    // Save API key using provider (DCP stores in vault, Raw stores in file)
+    await provider.writeCredential("credentials.api.1ly", apiKey);
     data.meta = {
       ...(data.meta || {}),
-      savedKeyPath: savedPath || getDefaultKeyPath(),
+      savedKeyPath: getDefaultKeyPath(),
     };
   }
   return mcpOk(data);

@@ -23,7 +23,19 @@ export type McpErrorCode =
   | "INVALID_PAYMENT_AMOUNT"
   | "INVALID_INPUT"
   | "TX_UNCERTAIN"
-  | "UNKNOWN_ERROR";
+  | "UNKNOWN_ERROR"
+  // DCP-related error codes
+  | "VAULT_OFFLINE"
+  | "DCP_NOT_RUNNING"
+  | "DCP_REQUEST_FAILED"
+  | "CONSENT_REQUIRED"
+  | "CONSENT_TIMEOUT"
+  | "CONSENT_DENIED"
+  | "BUDGET_EXCEEDED_TX"
+  | "BUDGET_EXCEEDED_DAILY"
+  | "MISSING_VAULT_ID"
+  | "INVALID_PROVIDER"
+  | "NOT_IMPLEMENTED";
 
 export type McpErrorAction =
   | "run_create_store_or_set_onely_api_key"
@@ -47,7 +59,20 @@ export type McpErrorAction =
   | "verify_funds_and_retry"
   | "retry_or_contact_support"
   | "fix_request"
-  | "verify_on_chain_before_retry";
+  | "verify_on_chain_before_retry"
+  // DCP-related actions
+  | "unlock_vault_or_use_raw"
+  | "start_dcp_or_use_raw"
+  | "check_dcp_logs"
+  | "approve_in_dcp_app"
+  | "open_dcp_app"
+  | "retry_operation"
+  | "retry_or_adjust_request"
+  | "reduce_amount_or_increase_limit"
+  | "wait_or_increase_daily_limit"
+  | "set_dcp_vault_id"
+  | "use_valid_provider"
+  | "check_docs_for_timeline";
 
 export type ErrorMapping = {
   code: McpErrorCode;
@@ -137,6 +162,38 @@ export function mapErrorToCode(message: string): ErrorMapping {
     msg.includes("invalid input")
   ) {
     return { code: "INVALID_INPUT", action: "fix_request" };
+  }
+
+  // DCP-related error mappings
+  if (msg.includes("vault") && (msg.includes("locked") || msg.includes("offline"))) {
+    return { code: "VAULT_OFFLINE", action: "unlock_vault_or_use_raw" };
+  }
+  if (msg.includes("dcp") && msg.includes("not running")) {
+    return { code: "DCP_NOT_RUNNING", action: "start_dcp_or_use_raw" };
+  }
+  if (msg.includes("dcp") && msg.includes("request failed")) {
+    return { code: "DCP_REQUEST_FAILED", action: "check_dcp_logs" };
+  }
+  if (msg.includes("consent") && msg.includes("required")) {
+    return { code: "CONSENT_REQUIRED", action: "approve_in_dcp_app" };
+  }
+  if (msg.includes("consent") && msg.includes("timeout")) {
+    return { code: "CONSENT_TIMEOUT", action: "retry_operation" };
+  }
+  if (msg.includes("consent") && msg.includes("denied")) {
+    return { code: "CONSENT_DENIED", action: "retry_or_adjust_request" };
+  }
+  if (msg.includes("exceeds") && msg.includes("per-transaction")) {
+    return { code: "BUDGET_EXCEEDED_TX", action: "reduce_amount_or_increase_limit" };
+  }
+  if (msg.includes("vault_id") && msg.includes("required")) {
+    return { code: "MISSING_VAULT_ID", action: "set_dcp_vault_id" };
+  }
+  if (msg.includes("invalid") && msg.includes("provider")) {
+    return { code: "INVALID_PROVIDER", action: "use_valid_provider" };
+  }
+  if (msg.includes("not yet implemented") || msg.includes("coming in phase")) {
+    return { code: "NOT_IMPLEMENTED", action: "check_docs_for_timeline" };
   }
 
   return { code: "UNKNOWN_ERROR" };

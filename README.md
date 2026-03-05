@@ -68,6 +68,27 @@ npx skills add coinbase/agentic-wallet-skills
 npx awal show
 ```
 
+#### Option C: DCP Local (recommended for secure signing)
+
+```bash
+# Start DCP locally
+dcp init
+npx @dcprotocol/server
+
+# Run MCP (auto-detects DCP at localhost:8420)
+npx @1ly/mcp-server
+```
+
+#### Option D: DCP Remote (relay)
+
+```bash
+# Pairing outputs these values
+DCP_VAULT_ID="vault_..." \
+DCP_RELAY_URL="wss://relay.dcp.1ly.store" \
+DCP_VAULT_HPKE_PUBLIC_KEY="base64..." \
+npx @1ly/mcp-server
+```
+
 ### 2. Verify Setup
 
 ```bash
@@ -76,6 +97,18 @@ ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server --self-
 ---
 
 ## Configuration
+
+### HTTP Mode (Cloud MCP)
+
+Run MCP over HTTP (for cloud hosting or `mcp.1ly.store`):
+
+```bash
+# HTTP transport
+MCP_TRANSPORT=http npx @1ly/mcp-server
+
+# Custom host/port
+MCP_TRANSPORT=http MCP_HTTP_HOST=0.0.0.0 MCP_HTTP_PORT=3000 npx @1ly/mcp-server
+```
 
 ### Environment Variables
 
@@ -92,6 +125,14 @@ ONELY_WALLET_SOLANA_KEY="~/.1ly/wallets/solana.json" npx @1ly/mcp-server --self-
 | `ONELY_API_BASE` | No | API base URL (default: `https://1ly.store`) |
 | `ONELY_WALLET_PROVIDER` | No | `raw` (default) or `coinbase` (Agentic Wallet, Base-only) |
 | `ONELY_SOLANA_DRY_RUN` | No | Set to `1` to simulate Solana transactions without broadcasting. No real payments. For testing only. |
+| `MCP_TRANSPORT` | No | `http` to run HTTP MCP server (default: stdio) |
+| `MCP_HTTP_HOST` | No | Host for HTTP MCP server (default: `0.0.0.0`) |
+| `MCP_HTTP_PORT` | No | Port for HTTP MCP server (default: `3000`) |
+| `DCP_VAULT_ID` | No | Vault ID for DCP relay (remote mode) |
+| `DCP_RELAY_URL` | No | Relay URL (e.g., `wss://relay.dcp.1ly.store`) |
+| `DCP_RELAY_TOKEN` | No | Pairing token for relay (if required) |
+| `DCP_VAULT_HPKE_PUBLIC_KEY` | No | Base64 HPKE public key for the vault (remote mode) |
+| `DCP_RELAY_PLAINTEXT` | No | Set to `1` to disable HPKE (dev only) |
 
 *A wallet is required only for **paid** calls. For free search/details you can run without a wallet.*
 Use **one** of: `ONELY_WALLET_SOLANA_KEY`, `ONELY_WALLET_EVM_KEY`, or `ONELY_WALLET_PROVIDER=coinbase`.

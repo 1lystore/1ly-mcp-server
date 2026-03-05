@@ -1,11 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { encodePaymentRequiredHeader } from "@x402/core/http";
 import type { Config } from "../config.js";
 
 // Mock wallet/payment builders so tests don't require real keys/crypto
 vi.mock("../wallet/solana.js", async () => {
   return {
-    loadSolanaWallet: vi.fn(async () => ({ publicKey: { toBase58: () => "TEST" } })),
+    loadSolanaWallet: vi.fn(async () => ({ publicKey: { toBase58: () => "TEST" }, secretKey: new Uint8Array(64) })),
     buildSolanaPayment: vi.fn(async () => "PAYMENT_HEADER"),
     buildSolanaPaymentSignature: vi.fn(async () => "PAYMENT_SIGNATURE"),
   };
@@ -31,12 +31,55 @@ vi.mock("../wallet/agentic.js", async () => {
   };
 });
 
+// Mock provider module for tests
+const mockRawProvider = {
+  type: "raw" as const,
+  isAvailable: vi.fn(async () => true),
+  getPublicAddress: vi.fn(async (chain: string) =>
+    chain === "solana" ? "TEST" : "0x0000000000000000000000000000000000000000"
+  ),
+  checkBudget: vi.fn(async () => ({ allowed: true, remaining: 100, currency: "USD" })),
+  signMessage: vi.fn(async () => "SIGNATURE"),
+  signX402Payment: vi.fn(async () => ({ signature: "PAYMENT_SIGNATURE", publicKey: "TEST" })),
+  signSolanaTransaction: vi.fn(async () => new Uint8Array(64)),
+  signSolanaPayload: vi.fn(async () => new Uint8Array(64)),
+  signEvmTypedData: vi.fn(async () => "0xSIGNATURE"),
+  readCredential: vi.fn(async () => null),
+  writeCredential: vi.fn(async () => {}),
+  readData: vi.fn(async () => null),
+};
+
+const mockCoinbaseProvider = {
+  type: "coinbase" as const,
+  isAvailable: vi.fn(async () => true),
+  getPublicAddress: vi.fn(async () => "0x0000000000000000000000000000000000000000"),
+  checkBudget: vi.fn(async () => ({ allowed: true, remaining: 100, currency: "USD" })),
+  signMessage: vi.fn(async () => { throw new Error("Not supported"); }),
+  signX402Payment: vi.fn(async () => ({ signature: "PAYMENT_SIGNATURE", publicKey: "0x0000000000000000000000000000000000000000" })),
+  signSolanaTransaction: vi.fn(async () => { throw new Error("Not supported"); }),
+  signSolanaPayload: vi.fn(async () => { throw new Error("Not supported"); }),
+  signEvmTypedData: vi.fn(async () => { throw new Error("Not supported"); }),
+  readCredential: vi.fn(async () => null),
+  writeCredential: vi.fn(async () => {}),
+  readData: vi.fn(async () => null),
+};
+
+let currentMockProvider = mockRawProvider;
+
+vi.mock("../provider/index.js", async () => {
+  return {
+    getProvider: vi.fn(async () => currentMockProvider),
+    resetProvider: vi.fn(),
+  };
+});
+
 import { handleCall } from "./call.js";
 import { makeX402RequestViaAgenticWallet } from "../wallet/agentic.js";
 
 const config: Config = {
   apiBase: "https://1ly.store",
   wallet: { type: "solana", key: "/dev/null" },
+  walletSolana: "/dev/null",
   budgets: { perCall: 10, daily: 100 },
   network: "solana",
   walletProvider: "raw",
@@ -47,6 +90,13 @@ describe("1ly_call", () => {
   beforeEach(() => {
     // Ensure budget state doesn't leak across tests
     process.env.ONELY_BUDGET_STATE_FILE = `/tmp/1ly-mcp-budget-test-${Date.now()}.json`;
+    // Reset mock provider to raw for most tests
+    currentMockProvider = mockRawProvider;
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    currentMockProvider = mockRawProvider;
   });
 
   it("handles 402 -> pays -> returns ok response", async () => {
@@ -104,6 +154,9 @@ describe("1ly_call", () => {
   });
 
   it("uses agentic wallet IPC when coinbase provider is set", async () => {
+    // Use coinbase mock provider
+    currentMockProvider = mockCoinbaseProvider;
+
     const coinbaseConfig: Config = {
       apiBase: "https://1ly.store",
       wallet: null,
@@ -160,6 +213,9 @@ describe("1ly_call", () => {
   });
 
   it("throws clear error when coinbase provider receives solana-only requirements", async () => {
+    // Use coinbase mock provider
+    currentMockProvider = mockCoinbaseProvider;
+
     const coinbaseConfig: Config = {
       apiBase: "https://1ly.store",
       wallet: null,
