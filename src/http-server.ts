@@ -20,7 +20,8 @@ export interface HttpServerOptions {
 
 export async function startHttpServer(options: HttpServerOptions = {}): Promise<void> {
   const envPort = process.env.MCP_HTTP_PORT ? Number(process.env.MCP_HTTP_PORT) : undefined;
-  const port = options.port ?? envPort ?? DEFAULT_PORT;
+  const platformPort = process.env.PORT ? Number(process.env.PORT) : undefined;
+  const port = options.port ?? envPort ?? platformPort ?? DEFAULT_PORT;
   const host = options.host ?? process.env.MCP_HTTP_HOST ?? DEFAULT_HOST;
 
   const transports = new Map<
